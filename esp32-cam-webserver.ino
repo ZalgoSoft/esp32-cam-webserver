@@ -9,6 +9,7 @@
 #include "time.h"
 #include <ESPmDNS.h>
 
+#include <ESP32Servo.h>
 
 /* This sketch is a extension/expansion/reork of the 'official' ESP32 Camera example
  *  sketch from Expressif:
@@ -61,6 +62,14 @@ camera_config_t config;
 // used for non-volatile camera settings
 #include "storage.h"
 
+#define SERVO_1      14
+#define SERVO_2      15
+#define SERVO_STEP   5
+Servo servo1;
+Servo servo2;
+int servo1Pos = 64;
+int servo2Pos = 64;
+//ESP32PWM pwm;
 // Sketch Info
 int sketchSize;
 int sketchSpace;
@@ -664,6 +673,18 @@ void setup() {
             delay(5000);
         }
     }
+  // Allow allocation of all timers
+  //  ESP32PWM::allocateTimer(0);
+  //  ESP32PWM::allocateTimer(1);
+  //  ESP32PWM::allocateTimer(2);
+  //  ESP32PWM::allocateTimer(3);
+  //servo1.setPeriodHertz(50);    // standard 50 hz servo
+  //servo2.setPeriodHertz(50);    // standard 50 hz servo
+  servo1.attach(SERVO_1);
+  servo2.attach(SERVO_2);
+  servo1.write(servo1Pos);
+  servo2.write(servo2Pos);
+  //  pwm.attachPin(12, 10000);//10khz
 
     #if defined(LED_PIN)  // If we have a notification LED, set it to output
         pinMode(LED_PIN, OUTPUT);

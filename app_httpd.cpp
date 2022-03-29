@@ -20,6 +20,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 
+#include <ESP32Servo.h>
 #include "index_ov2640.h"
 #include "index_ov3660.h"
 #include "index_other.h"
@@ -67,6 +68,11 @@ extern char otaPassword[];
 extern unsigned long xclk;
 extern int sensorPID;
 
+extern Servo servo1;
+extern Servo servo2;
+extern int servo1Pos;
+extern int servo2Pos;
+#define SERVO_STEP   5
 typedef struct {
         httpd_req_t *req;
         size_t len;
@@ -425,6 +431,41 @@ static esp_err_t cmd_handler(httpd_req_t *req){
           flashLED(50);
           delay(150);
           Serial.print('.');
+
+         }
+  }
+  else if (!strcmp(variable, "ptz")) {
+    if (val == 1 ) {
+      if (servo1Pos <= 180) {
+        servo1Pos += SERVO_STEP;
+        servo1.write(servo1Pos);
+      }
+      Serial.println(servo1Pos);
+      Serial.println("Up");
+    }
+    else if (val == 3 ) {
+      if (servo2Pos <= 180) {
+        servo2Pos += SERVO_STEP;
+        servo2.write(servo2Pos);
+      }
+      Serial.println(servo2Pos);
+      Serial.println("Left");
+    }
+    else if (val == 2 ) {
+      if (servo2Pos >= 0) {
+        servo2Pos -= SERVO_STEP;
+        servo2.write(servo2Pos);
+      }
+      Serial.println(servo2Pos);
+      Serial.println("Right");
+    }
+    else if (val == 4 ) {
+      if (servo1Pos >= 0) {
+        servo1Pos -= SERVO_STEP;
+        servo1.write(servo1Pos);
+      }
+      Serial.println(servo1Pos);
+      Serial.println("Down");
         }
     }
     else {

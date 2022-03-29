@@ -258,6 +258,24 @@ const uint8_t index_ov2640_html[] = R"=====(<!doctype html>
                   <option value="0" selected="selected">Disabled</option>
                 </select>
               </div>
+              <div class="input-group" id="ptz-group">
+                <table>
+                    <tr><td colspan="3" align="center">
+                      <button id="ptzup" class="button,default-action" onmousedown="toggleCheckbox(1);" ontouchstart="toggleCheckbox('up');">Up</button>
+                    </td></tr>
+                    <tr>
+                        <td align="center">
+                          <button id="ptzleft" class="button,default-action" onmousedown="toggleCheckbox(2);" ontouchstart="toggleCheckbox('left');">Left</button></td><td align="center">
+                        </td>
+                        <td align="center">
+                          <button id="ptzright" class="button,default-action" onmousedown="toggleCheckbox(3);" ontouchstart="toggleCheckbox('right');">Right</button>
+                        </td>
+                     </tr>
+                    <tr><td colspan="3" align="center">
+                        <button id="ptzdown" class="button,default-action" onmousedown="toggleCheckbox(4);" ontouchstart="toggleCheckbox('down');">Down</button>
+                    </td></tr>                   
+                </table>
+               </div>
               <div class="input-group" id="preferences-group">
                 <label for="prefs" style="line-height: 2em;">Preferences</label>
                 <button id="reboot" title="Reboot the camera module">Reboot</button>
@@ -320,6 +338,10 @@ const uint8_t index_ov2640_html[] = R"=====(<!doctype html>
     const rebootButton = document.getElementById('reboot')
     const minFrameTime = document.getElementById('min_frame_time')
 
+    const ptzup = document.getElementById('ptzup')
+    const ptzdown = document.getElementById('ptzdown')
+    const ptzleft = document.getElementById('ptzleft')
+    const ptzright = document.getElementById('ptztight')
     const hide = el => {
       el.classList.add('hidden')
     }
@@ -627,6 +649,11 @@ const uint8_t index_ov2640_html[] = R"=====(<!doctype html>
     }
 
   })
+  function toggleCheckbox(x) {
+      var xhr = new XMLHttpRequest();
+      xhr.open("GET", "/control?var=ptz&val=" + x, true);            
+      xhr.send();
+    }
   </script>
 </html>)=====";
 
