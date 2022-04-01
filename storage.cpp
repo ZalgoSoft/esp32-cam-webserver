@@ -9,6 +9,11 @@ extern int lampVal;       // The current Lamp value
 extern bool autoLamp;     // Automatic lamp mode
 extern int xclk;          // Camera module clock speed
 extern int minFrameTime;  // Limits framerate
+extern int Servo1Pin;
+extern int Servo2Pin;
+extern int Servo_Step;
+extern int ptz_y;
+extern int ptz_x;
 
 /*
  * Useful utility when debugging...
@@ -87,6 +92,13 @@ void loadPrefs(fs::FS &fs){
           return;
         }
     }
+
+    Servo1Pin = jsonExtract(prefs, "servo1_pin").toInt();
+    Servo2Pin = jsonExtract(prefs, "servo2_pin").toInt();    
+    ptz_x = jsonExtract(prefs, "ptz_x").toInt();
+    ptz_y = jsonExtract(prefs, "ptz_y").toInt();
+    Servo_Step= jsonExtract(prefs, "servo_step").toInt();
+
     // get sensor reference
     sensor_t * s = esp_camera_sensor_get();
 
@@ -174,7 +186,13 @@ void savePrefs(fs::FS &fs){
   p+=sprintf(p, "\"hmirror\":%u,", s->status.hmirror);
   p+=sprintf(p, "\"dcw\":%u,", s->status.dcw);
   p+=sprintf(p, "\"colorbar\":%u,", s->status.colorbar);
-  p+=sprintf(p, "\"rotate\":\"%d\"", myRotation);
+  p+=sprintf(p, "\"rotate\":\"%d\",", myRotation);
+  p+=sprintf(p, "\"servo1_pin\":%u,", Servo1Pin );
+  p+=sprintf(p, "\"servo2_pin\":%u,", Servo2Pin );
+  p+=sprintf(p, "\"servo_step\":%u,",  Servo_Step );
+  p+=sprintf(p, "\"ptz_y\":%u,",  ptz_y );
+  p+=sprintf(p, "\"ptz_x\":%u",ptz_x);
+
   *p++ = '}';
   *p++ = 0;
   file.print(json_response);

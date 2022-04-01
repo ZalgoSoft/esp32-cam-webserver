@@ -2,12 +2,8 @@
  * Master CSS file for the camera pages
  */
 
-const uint8_t style_css[] = R"=====(/*
- * CSS for the esp32 cam webserver
- */
-
-body {
-  font-family: Arial,Helvetica,sans-serif;
+const uint8_t style_css[] = R"=====(body {
+  font-family: Arial, Helvetica, sans-serif;
   background: #181818;
   color: #EFEFEF;
   font-size: 16px
@@ -26,7 +22,8 @@ section.main {
   display: flex
 }
 
-#menu,section.main {
+#menu,
+section.main {
   flex-direction: column
 }
 
@@ -89,7 +86,7 @@ section#buttons {
 }
 
 #quality {
-    transform: rotateY(180deg);
+  transform: rotateY(180deg);
 }
 
 .input-group {
@@ -105,11 +102,13 @@ section#buttons {
   min-width: 47%
 }
 
-.input-group input,.input-group select {
+.input-group input,
+.input-group select {
   flex-grow: 1
 }
 
-.range-max,.range-min {
+.range-max,
+.range-min {
   display: inline-block;
   padding: 0 5px
 }
@@ -164,7 +163,7 @@ input[type=range]::-webkit-slider-runnable-track {
 }
 
 input[type=range]::-webkit-slider-thumb {
-  border: 1px solid rgba(0,0,30,0);
+  border: 1px solid rgba(0, 0, 30, 0);
   height: 22px;
   width: 22px;
   border-radius: 50px;
@@ -188,7 +187,7 @@ input[type=range]::-moz-range-track {
 }
 
 input[type=range]::-moz-range-thumb {
-  border: 1px solid rgba(0,0,30,0);
+  border: 1px solid rgba(0, 0, 30, 0);
   height: 22px;
   width: 22px;
   border-radius: 50px;
@@ -218,7 +217,7 @@ input[type=range]::-ms-fill-upper {
 }
 
 input[type=range]::-ms-thumb {
-  border: 1px solid rgba(0,0,30,0);
+  border: 1px solid rgba(0, 0, 30, 0);
   height: 22px;
   width: 22px;
   border-radius: 50px;
@@ -267,7 +266,8 @@ input[type=text] {
   background-color: grey
 }
 
-.slider,.slider:before {
+.slider,
+.slider:before {
   display: inline-block;
   transition: .4s
 }
@@ -345,23 +345,57 @@ select {
 }
 
 .loader {
-  border: 0.5em solid #f3f3f3; /* Light grey */
-  border-top: 0.5em solid #000000; /* white */
+  border: 0.5em solid #f3f3f3;
+  /* Light grey */
+  border-top: 0.5em solid #000000;
+  /* white */
   border-radius: 50%;
   width: 1em;
   height: 1em;
-  -webkit-animation: spin 2s linear infinite; /* Safari */
+  -webkit-animation: spin 2s linear infinite;  /* Safari */
   animation: spin 2s linear infinite;
 }
 
-@-webkit-keyframes spin {   /* Safari */
-  0% { -webkit-transform: rotate(0deg); }
-  100% { -webkit-transform: rotate(360deg); }
+@-webkit-keyframes spin {  /* Safari */
+  0% {    -webkit-transform: rotate(0deg);  }
+  100% {    -webkit-transform: rotate(360deg);  }
 }
 
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+#ptz-group {
+  justify-content: right;
+}
+
+#controls {
+  display: inline-grid;
+}
+
+#ptzup {
+  grid-column-start: 2;
+}
+
+#ptzleft {
+  grid-column-start: 1;
+}
+
+#ptzright {
+  grid-column-start: 3;
+}
+
+#ptzdown {
+  grid-column-start: 2;
+}
+
+.halfie,
+#ptz_x,
+#ptz_y,
+#servo1_pin,
+#servo2_pin {
+  width: 5%
 })=====";
 
 size_t style_css_len = sizeof(style_css)-1;
