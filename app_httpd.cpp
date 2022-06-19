@@ -19,8 +19,8 @@
 #include <Arduino.h>
 #include <WiFi.h>
 
-#include <TLog.h>      // The T-Logging library.
-#include <TelnetSerialStream.h>
+//#include <TLog.h>      // The T-Logging library.
+//#include <TelnetSerialStream.h>
 #include <sys/socket.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>

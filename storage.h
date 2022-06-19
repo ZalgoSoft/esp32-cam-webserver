@@ -5,7 +5,7 @@
 #define PREFERENCES_MAX_SIZE 500
 
 #define PREFERENCES_FILE "/esp32cam-preferences.json"
-#define PREFERENCES_FILE "/ptz-last-pos.json"
+#define PREFERENCES_POS_FILE "/ptz-last-pos.json"
 
 extern void dumpPrefs(fs::FS &fs);
 extern void loadPrefs(fs::FS &fs);

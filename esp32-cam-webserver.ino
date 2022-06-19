@@ -58,9 +58,9 @@ struct station {
 stationList[] = {{"ESP32-CAM-CONNECT", "InsecurePassword", true}};
 #endif
 
-#include <TLog.h>      // The T-Logging library.
-#include <WebSerialStream.h>
-WebSerialStream webSerialStream = WebSerialStream(8514);
+//#include <TLog.h>      // The T-Logging library.
+//#include <WebSerialStream.h>
+//WebSerialStream webSerialStream = WebSerialStream(8514);
 TaskHandle_t TaskCore0Handle;
 TaskHandle_t asyncPos1Handle;
 TaskHandle_t xHandle;
