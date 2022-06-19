@@ -24,8 +24,9 @@
 #include <sys/socket.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-//#include <freertos/FreeRTOSConfig.h>
+#include <freertos/FreeRTOSConfig.h>
 #include <ESP32Servo.h>
+#include <esp_log.h>
 #include "index_ov2640.h"
 #include "index_ov3660.h"
 #include "index_other.h"
@@ -72,6 +73,7 @@ extern bool otaEnabled;
 extern char otaPassword[];
 extern unsigned long xclk;
 extern int sensorPID;
+static const char* TAG = "httpd";
 
 extern Servo servo1;
 extern Servo servo2;
@@ -81,8 +83,8 @@ extern int Servo_Step;
 extern int ptz_y;
 extern int ptz_x;
 typedef struct {
-        httpd_req_t *req;
-        size_t len;
+  httpd_req_t *req;
+  size_t len;
 } jpg_chunking_t;
 
 #define PART_BOUNDARY "123456789000000000000987654321"
@@ -105,54 +107,54 @@ uint8_t temprature_sens_read();
 #endif
 
 void serialDump() {
-  Log.println();
+  //ESP_LOGI(TAG, );
   // Module
-  Log.printf("Name: %s\r\n", myName);
+  ESP_LOGI(TAG, "Name: %s\r\n", myName);
   if (haveTime) {
-    Log.print("Time: ");
+    ESP_LOGI(TAG, "Time: ");
     printLocalTime(true);
   }
-  Log.printf("Firmware: %s (base: %s)\r\n", myVer, baseVersion);
+  ESP_LOGI(TAG, "Firmware: %s (base: %s)\r\n", myVer, baseVersion);
   float sketchPct = 100 * sketchSize / sketchSpace;
-  Log.printf("Sketch Size: %i (total: %i, %.1f%% used)\r\n", sketchSize, sketchSpace, sketchPct);
-  Log.printf("MD5: %s\r\n", sketchMD5.c_str());
-  Log.printf("ESP sdk: %s\r\n", ESP.getSdkVersion());
-  Log.print("This thread core affinity: ");
-  Log.println(xPortGetCoreID());
+  ESP_LOGI(TAG, "Sketch Size: %i (total: %i, %.1f%% used)\r\n", sketchSize, sketchSpace, sketchPct);
+  ESP_LOGI(TAG, "MD5: %s\r\n", sketchMD5.c_str());
+  ESP_LOGI(TAG, "ESP sdk: %s\r\n", ESP.getSdkVersion());
+  ESP_LOGI(TAG, "This thread core affinity: ");
+  ESP_LOGI(TAG, xPortGetCoreID());
   if (otaEnabled) {
     if (strlen(otaPassword) != 0) {
-      Log.printf("OTA: Enabled, Password: %s\n\r", otaPassword);
+      ESP_LOGI(TAG, "OTA: Enabled, Password: %s\n\r", otaPassword);
     } else {
-      Log.printf("OTA: Enabled, No Password! (insecure)\n\r");
+      ESP_LOGI(TAG, "OTA: Enabled, No Password! (insecure)\n\r");
     }
   } else {
-    Log.printf("OTA: Disabled\n\r");
+    ESP_LOGI(TAG, "OTA: Disabled\n\r");
   }
   // Network
   if (accesspoint) {
     if (captivePortal) {
-      Log.printf("WiFi Mode: AccessPoint with captive portal\r\n");
+      ESP_LOGI(TAG, "WiFi Mode: AccessPoint with captive portal\r\n");
     } else {
-      Log.printf("WiFi Mode: AccessPoint\r\n");
+      ESP_LOGI(TAG, "WiFi Mode: AccessPoint\r\n");
     }
-    Log.printf("WiFi SSID: %s\r\n", apName);
+    ESP_LOGI(TAG, "WiFi SSID: %s\r\n", apName);
   } else {
-    Log.printf("WiFi Mode: Client\r\n");
+    ESP_LOGI(TAG, "WiFi Mode: Client\r\n");
     String ssidName = WiFi.SSID();
-    Log.printf("WiFi Ssid: %s\r\n", ssidName.c_str());
-    Log.printf("WiFi Rssi: %i\r\n", WiFi.RSSI());
+    ESP_LOGI(TAG, "WiFi Ssid: %s\r\n", ssidName.c_str());
+    ESP_LOGI(TAG, "WiFi Rssi: %i\r\n", WiFi.RSSI());
     String bssid = WiFi.BSSIDstr();
-    Log.printf("WiFi BSSID: %s\r\n", bssid.c_str());
+    ESP_LOGI(TAG, "WiFi BSSID: %s\r\n", bssid.c_str());
   }
-  Log.printf("WiFi IP address: %d.%d.%d.%d\r\n", ip[0], ip[1], ip[2], ip[3]);
+  ESP_LOGI(TAG, "WiFi IP address: %d.%d.%d.%d\r\n", ip[0], ip[1], ip[2], ip[3]);
   if (!accesspoint) {
-    Log.printf("WiFi Netmask: %d.%d.%d.%d\r\n", net[0], net[1], net[2], net[3]);
-    Log.printf("WiFi Gateway: %d.%d.%d.%d\r\n", gw[0], gw[1], gw[2], gw[3]);
+    ESP_LOGI(TAG, "WiFi Netmask: %d.%d.%d.%d\r\n", net[0], net[1], net[2], net[3]);
+    ESP_LOGI(TAG, "WiFi Gateway: %d.%d.%d.%d\r\n", gw[0], gw[1], gw[2], gw[3]);
   }
-  Log.printf("WiFi Http port: %i, Stream port: %i\r\n", httpPort, streamPort);
+  ESP_LOGI(TAG, "WiFi Http port: %i, Stream port: %i\r\n", httpPort, streamPort);
   byte mac[6];
   WiFi.macAddress(mac);
-  Log.printf("WiFi MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  ESP_LOGI(TAG, "WiFi MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
   // System
   int64_t sec = esp_timer_get_time() / 1000000;
   int64_t upDays = int64_t(floor(sec / 86400));
@@ -161,55 +163,55 @@ void serialDump() {
   int upSec = sec % 60;
   int McuTc = (temprature_sens_read() - 32) / 1.8; // celsius
   int McuTf = temprature_sens_read(); // fahrenheit
-  Log.printf("System up: %" PRId64 ":%02i:%02i:%02i (d:h:m:s)\r\n", upDays, upHours, upMin, upSec);
-  Log.printf("Active streams: %i, Previous streams: %lu, Images captured: %lu\r\n", streamCount, streamsServed, imagesServed);
-  Log.printf("CPU Freq: %i MHz, Xclk Freq: %i MHz\r\n", ESP.getCpuFreqMHz(), xclk);
-  Log.printf("MCU temperature : %i C, %i F  (approximate)\r\n", McuTc, McuTf);
-  Log.printf("Heap: %i, free: %i, min free: %i, max block: %i\r\n", ESP.getHeapSize(), ESP.getFreeHeap(), ESP.getMinFreeHeap(), ESP.getMaxAllocHeap());
+  ESP_LOGI(TAG, "System up: %" PRId64 ":%02i:%02i:%02i (d:h:m:s)\r\n", upDays, upHours, upMin, upSec);
+  ESP_LOGI(TAG, "Active streams: %i, Previous streams: %lu, Images captured: %lu\r\n", streamCount, streamsServed, imagesServed);
+  ESP_LOGI(TAG, "CPU Freq: %i MHz, Xclk Freq: %i MHz\r\n", ESP.getCpuFreqMHz(), xclk);
+  ESP_LOGI(TAG, "MCU temperature : %i C, %i F  (approximate)\r\n", McuTc, McuTf);
+  ESP_LOGI(TAG, "Heap: %i, free: %i, min free: %i, max block: %i\r\n", ESP.getHeapSize(), ESP.getFreeHeap(), ESP.getMinFreeHeap(), ESP.getMaxAllocHeap());
   if (psramFound()) {
-    Log.printf("Psram: %i, free: %i, min free: %i, max block: %i\r\n", ESP.getPsramSize(), ESP.getFreePsram(), ESP.getMinFreePsram(), ESP.getMaxAllocPsram());
+    ESP_LOGI(TAG, "Psram: %i, free: %i, min free: %i, max block: %i\r\n", ESP.getPsramSize(), ESP.getFreePsram(), ESP.getMinFreePsram(), ESP.getMaxAllocPsram());
   } else {
-    Log.printf("Psram: Not found; please check your board configuration.\r\n");
-    Log.printf("- High resolution/quality settings will show incomplete frames to low memory.\r\n");
+    ESP_LOGI(TAG, "Psram: Not found; please check your board configuration.\r\n");
+    ESP_LOGI(TAG, "- High resolution/quality settings will show incomplete frames to low memory.\r\n");
   }
   // Filesystems
   if (filesystem && (SPIFFS.totalBytes() > 0)) {
-    Log.printf("Spiffs: %i, used: %i\r\n", SPIFFS.totalBytes(), SPIFFS.usedBytes());
+    ESP_LOGI(TAG, "Spiffs: %i, used: %i\r\n", SPIFFS.totalBytes(), SPIFFS.usedBytes());
   } else {
-    Log.printf("Spiffs: No filesystem found, please check your board configuration.\r\n");
-    Log.printf("- Saving and restoring camera settings will not function without this.\r\n");
+    ESP_LOGI(TAG, "Spiffs: No filesystem found, please check your board configuration.\r\n");
+    ESP_LOGI(TAG, "- Saving and restoring camera settings will not function without this.\r\n");
   }
-  Log.println("Preferences file: ");
+  ESP_LOGI(TAG, "Preferences file: ");
   dumpPrefs(SPIFFS);
   if (critERR.length() > 0) {
-    Log.printf("\r\n\r\nAn error or halt has occurred with Camera Hardware, see previous messages.\r\n");
-    Log.printf("A reboot is required to recover from this.\r\nError message: (html)\r\n %s\r\n\r\n", critERR.c_str());
+    ESP_LOGI(TAG, "\r\n\r\nAn error or halt has occurred with Camera Hardware, see previous messages.\r\n");
+    ESP_LOGI(TAG, "A reboot is required to recover from this.\r\nError message: (html)\r\n %s\r\n\r\n", critERR.c_str());
   }
-  Log.println();
+  //ESP_LOGI(TAG, );
   return;
 }
 
-static esp_err_t capture_handler(httpd_req_t *req){
-    camera_fb_t * fb = NULL;
-    esp_err_t res = ESP_OK;
+static esp_err_t capture_handler(httpd_req_t *req) {
+  camera_fb_t * fb = NULL;
+  esp_err_t res = ESP_OK;
 
-    Log.print("capture_handler CPU ");
-    Log.println(xPortGetCoreID());
-    if (autoLamp && (lampVal != -1)) {
-        setLamp(lampVal);
-        delay(75); // coupled with the status led flash this gives ~150ms for lamp to settle.
-    }
-    flashLED(75); // little flash of status LED
+  ESP_LOGI(TAG, "capture_handler CPU ");
+  ESP_LOGI(TAG, xPortGetCoreID());
+  if (autoLamp && (lampVal != -1)) {
+    setLamp(lampVal);
+    delay(75); // coupled with the status led flash this gives ~150ms for lamp to settle.
+  }
+  flashLED(75); // little flash of status LED
 
-    int64_t fr_start = esp_timer_get_time();
+  int64_t fr_start = esp_timer_get_time();
 
-    fb = esp_camera_fb_get();
-    if (!fb) {
-      Log.println("CAPTURE: failed to acquire frame");
-      httpd_resp_send_500(req);
-      if (autoLamp && (lampVal != -1)) setLamp(0);
-      return ESP_FAIL;
-    }
+  fb = esp_camera_fb_get();
+  if (!fb) {
+    ESP_LOGI(TAG, "CAPTURE: failed to acquire frame");
+    httpd_resp_send_500(req);
+    if (autoLamp && (lampVal != -1)) setLamp(0);
+    return ESP_FAIL;
+  }
 
   httpd_resp_set_type(req, "image/jpeg");
   httpd_resp_set_hdr(req, "Content-Disposition", "inline; filename=capture.jpg");
@@ -221,14 +223,14 @@ static esp_err_t capture_handler(httpd_req_t *req){
     res = httpd_resp_send(req, (const char *)fb->buf, fb->len);
   } else {
     res = ESP_FAIL;
-    Log.println("Capture Error: Non-JPEG image returned by camera module");
+    ESP_LOGI(TAG, "Capture Error: Non-JPEG image returned by camera module");
   }
   esp_camera_fb_return(fb);
   fb = NULL;
 
   int64_t fr_end = esp_timer_get_time();
   if (debugData) {
-    Log.printf("JPG: %uB %ums\r\n", (uint32_t)(fb_len), (uint32_t)((fr_end - fr_start) / 1000));
+    ESP_LOGI(TAG, "JPG: %uB %ums\r\n", (uint32_t)(fb_len), (uint32_t)((fr_end - fr_start) / 1000));
   }
   imagesServed++;
   if (autoLamp && (lampVal != -1)) {
@@ -246,9 +248,9 @@ static esp_err_t stream_handler(httpd_req_t *req) {
 
   streamKill = false;
 
-  print_client_ip(req); Log.print("Stream requested");
-  Log.print(" stream_handler CPU ");
-  Log.println(xPortGetCoreID());
+  print_client_ip(req); ESP_LOGI(TAG, "Stream requested");
+  ESP_LOGI(TAG, " stream_handler CPU ");
+  ESP_LOGI(TAG, xPortGetCoreID());
   if (autoLamp && (lampVal != -1)) setLamp(lampVal);
   streamCount = 1;  // at present we only have one stream handler, so values are 0 or 1..
   flashLED(75);     // double flash of status LED
@@ -264,7 +266,7 @@ static esp_err_t stream_handler(httpd_req_t *req) {
   if (res != ESP_OK) {
     streamCount = 0;
     if (autoLamp && (lampVal != -1)) setLamp(0);
-    Log.println("STREAM: failed to set HTTP response type");
+    ESP_LOGI(TAG, "STREAM: failed to set HTTP response type");
     return res;
   }
 
@@ -277,11 +279,11 @@ static esp_err_t stream_handler(httpd_req_t *req) {
   while (true) {
     fb = esp_camera_fb_get();
     if (!fb) {
-      Log.println("STREAM: failed to acquire frame");
+      ESP_LOGI(TAG, "STREAM: failed to acquire frame");
       res = ESP_FAIL;
     } else {
       if (fb->format != PIXFORMAT_JPEG) {
-        Log.println("STREAM: Non-JPEG frame returned by camera module");
+        ESP_LOGI(TAG, "STREAM: Non-JPEG frame returned by camera module");
         res = ESP_FAIL;
       } else {
         _jpg_buf_len = fb->len;
@@ -309,12 +311,12 @@ static esp_err_t stream_handler(httpd_req_t *req) {
     if (res != ESP_OK) {
       // This is the error exit point from the stream loop.
       // We end the stream here only if a Hard failure has been encountered or the connection has been interrupted.
-      Log.printf("Stream failed, code = %i : %s\r\n", res, esp_err_to_name(res));
+      ESP_LOGI(TAG, "Stream failed, code = %i : %s\r\n", res, esp_err_to_name(res));
       break;
     }
     if ((res != ESP_OK) || streamKill) {
       // We end the stream here when a kill is signalled.
-      Log.printf("Stream killed\r\n");
+      ESP_LOGI(TAG, "Stream killed\r\n");
       break;
     }
     int64_t frame_time = esp_timer_get_time() - last_frame;
@@ -323,9 +325,9 @@ static esp_err_t stream_handler(httpd_req_t *req) {
     delay(frame_delay);
 
     if (debugData) {
-      Log.printf("MJPG: %uB %ums, delay: %ums, framerate (%.1ffps)\r\n",
-                 (uint32_t)(_jpg_buf_len),
-                 (uint32_t)frame_time, frame_delay, 1000.0 / (uint32_t)(frame_time + frame_delay));
+      ESP_LOGI(TAG, "MJPG: %uB %ums, delay: %ums, framerate (%.1ffps)\r\n",
+               (uint32_t)(_jpg_buf_len),
+               (uint32_t)frame_time, frame_delay, 1000.0 / (uint32_t)(frame_time + frame_delay));
     }
     last_frame = esp_timer_get_time();
   }
@@ -333,7 +335,7 @@ static esp_err_t stream_handler(httpd_req_t *req) {
   streamsServed++;
   streamCount = 0;
   if (autoLamp && (lampVal != -1)) setLamp(0);
-  Log.println("Stream ended");
+  ESP_LOGI(TAG, "Stream ended");
   last_frame = 0;
   return res;
 }
@@ -381,7 +383,10 @@ static esp_err_t cmd_handler(httpd_req_t *req) {
     if (s->pixformat == PIXFORMAT_JPEG) res = s->set_framesize(s, (framesize_t)val);
   }
   else if (!strcmp(variable, "quality")) res = s->set_quality(s, val);
-    else if (!strcmp(variable, "xclk")) { xclk = val; res = s->set_xclk(s, LEDC_TIMER_0, val); }
+  else if (!strcmp(variable, "xclk")) {
+    xclk = val;
+    res = s->set_xclk(s, LEDC_TIMER_0, val);
+  }
   else if (!strcmp(variable, "contrast")) res = s->set_contrast(s, val);
   else if (!strcmp(variable, "brightness")) res = s->set_brightness(s, val);
   else if (!strcmp(variable, "saturation")) res = s->set_saturation(s, val);
@@ -438,11 +443,11 @@ static esp_err_t cmd_handler(httpd_req_t *req) {
     periph_module_disable(PERIPH_I2C1_MODULE);
     periph_module_reset(PERIPH_I2C0_MODULE);
     periph_module_reset(PERIPH_I2C1_MODULE);
-    Log.print("REBOOT requested");
+    ESP_LOGI(TAG, "REBOOT requested");
     while (true) {
       flashLED(50);
       delay(150);
-      Log.print('.');
+      ESP_LOGI(TAG, '.');
 
     }
   }
@@ -451,74 +456,74 @@ static esp_err_t cmd_handler(httpd_req_t *req) {
     if (!strcmp(value, "up" )) {
       if (ptz_y <= 180) {
         ptz_y += Servo_Step;
-//        servo1.write(ptz_y);
+        //        servo1.write(ptz_y);
       }
-      Log.printf("PTZ: %i\t%i\t", ptz_x, ptz_y);
-      Log.println("Up");
+      ESP_LOGI(TAG, "PTZ: %i\t%i\t", ptz_x, ptz_y);
+      ESP_LOGI(TAG, "Up");
     }
     else if (!strcmp(value,  "left" )) {
       if (ptz_x <= 180) {
         ptz_x += Servo_Step;
-//        servo2.write(ptz_x);
+        //        servo2.write(ptz_x);
       }
-      Log.printf("PTZ: %i\t%i\t", ptz_x, ptz_y);
-      Log.println("Left");
+      ESP_LOGI(TAG, "PTZ: %i\t%i\t", ptz_x, ptz_y);
+      ESP_LOGI(TAG, "Left");
     }
     else if (!strcmp(value, "right" )) {
       if (ptz_x >= 0) {
         ptz_x -= Servo_Step;
-//        servo2.write(ptz_x);
+        //        servo2.write(ptz_x);
       }
-      Log.printf("PTZ: %i\t%i\t", ptz_x, ptz_y);
-      Log.println("Right");
+      ESP_LOGI(TAG, "PTZ: %i\t%i\t", ptz_x, ptz_y);
+      ESP_LOGI(TAG, "Right");
     }
     else if (!strcmp(value, "down" )) {
       if (ptz_y >= 0) {
         ptz_y -= Servo_Step;
-//        servo1.write(ptz_y);
+        //        servo1.write(ptz_y);
       }
-      Log.printf("PTZ: %i\t%i\t" , ptz_x , ptz_y);
-      Log.println("Down");
+      ESP_LOGI(TAG, "PTZ: %i\t%i\t" , ptz_x , ptz_y);
+      ESP_LOGI(TAG, "Down");
     }
     else if (!strcmp(value, "center" )) {
       ptz_x = 90;
       ptz_y = 90;
-//      servo1.write(ptz_y);
-//      servo2.write(ptz_x);
-      Log.printf("PTZ: %i\t%i\t", ptz_x, ptz_y);
-      Log.println("Center");
+      //      servo1.write(ptz_y);
+      //      servo2.write(ptz_x);
+      ESP_LOGI(TAG, "PTZ: %i\t%i\t", ptz_x, ptz_y);
+      ESP_LOGI(TAG, "Center");
     }
   } else if (!strcmp(variable, "ptz_x")) {
     if (val >= 0 && val <= 180 ) {
       ptz_x = val;
-//      servo2.write(ptz_x);
-      Log.printf("PTZ: %i\t", ptz_x);
-      Log.println("PTZ pos x");
+      //      servo2.write(ptz_x);
+      ESP_LOGI(TAG, "PTZ: %i\t", ptz_x);
+      ESP_LOGI(TAG, "PTZ pos x");
     }
   } else if (!strcmp(variable, "ptz_y")) {
     if (val >= 0 && val <= 180 ) {
       ptz_y = val;
-//      servo1.write(ptz_y);
-      Log.printf("PTZ: %i\t", ptz_y);
-      Log.println("PTZ pos y");
+      //      servo1.write(ptz_y);
+      ESP_LOGI(TAG, "PTZ: %i\t", ptz_y);
+      ESP_LOGI(TAG, "PTZ pos y");
     }
   }   else if (!strcmp(variable, "servo_step")) {
     if (val >= 0 && val <= 90 ) {
       Servo_Step = val;
-      Log.printf("PTZ: %i\t", Servo_Step );
-      Log.println("PTZ Step Size");
+      ESP_LOGI(TAG, "PTZ: %i\t", Servo_Step );
+      ESP_LOGI(TAG, "PTZ Step Size");
     }
   } else if (!strcmp(variable, "servo1_pin")) {
     if (val >= 0 && val <= 31 ) {
       Servo1Pin = val;
-      Log.printf("PTZ: %i\t", Servo1Pin );
-      Log.println("PTZ Servo1Pin");
+      ESP_LOGI(TAG, "PTZ: %i\t", Servo1Pin );
+      ESP_LOGI(TAG, "PTZ Servo1Pin");
     }
   } else if (!strcmp(variable, "servo2_pin")) {
     if (val >= 0 && val <= 31 ) {
       Servo2Pin = val;
-      Log.printf("PTZ: %i\t", Servo2Pin );
-      Log.println("PTZ Servo2Pin");
+      ESP_LOGI(TAG, "PTZ: %i\t", Servo2Pin );
+      ESP_LOGI(TAG, "PTZ Servo2Pin");
     }
   }
   else {
@@ -624,10 +629,10 @@ static esp_err_t logo_svg_handler(httpd_req_t *req) {
 
 static esp_err_t dump_handler(httpd_req_t *req) {
   flashLED(75);
-  print_client_ip(req); Log.println("\r\nDump requested via Web");
+  print_client_ip(req); ESP_LOGI(TAG, "\r\nDump requested via Web");
   serialDump();
-  Log.print("dump_handler CPU ");
-  Log.println(xPortGetCoreID());
+  ESP_LOGI(TAG, "dump_handler CPU ");
+  ESP_LOGI(TAG, xPortGetCoreID());
 
   static char dumpOut[2000] = "";
   char * d = dumpOut;
@@ -636,13 +641,13 @@ static esp_err_t dump_handler(httpd_req_t *req) {
   d += sprintf(d, "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n");
   d += sprintf(d, "<title>%s - Status</title>\n", myName);
   // A javascript timer to refresh the page every minute.
-  d += sprintf(d, "<script>\nsetTimeout(function(){\nlocation.replace(document.URL);\n}, 60000);</script>\n");  
+  d += sprintf(d, "<script>\nsetTimeout(function(){\nlocation.replace(document.URL);\n}, 60000);</script>\n");
   d += sprintf(d, "<link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"/favicon-32x32.png\">\n");
   d += sprintf(d, "<link rel=\"icon\" type=\"image/png\" sizes=\"16x16\" href=\"/favicon-16x16.png\">\n");
   d += sprintf(d, "<link rel=\"stylesheet\" type=\"text/css\" href=\"/style.css\">\n");
   d += sprintf(d, "</head>\n");
-    d += sprintf(d, "<body>\n");
-    d+= sprintf(d,"<img src=\"/logo.svg\" style=\"position: relative; float: right; \" alt=\"\" >\n");
+  d += sprintf(d, "<body>\n");
+  d += sprintf(d, "<img src=\"/logo.svg\" style=\"position: relative; float: right; \" alt=\"\" >\n");
   if (critERR.length() > 0) {
     d += sprintf(d, "%s<hr>\n", critERR.c_str());
   }
@@ -737,7 +742,7 @@ static esp_err_t dump_handler(httpd_req_t *req) {
 
 static esp_err_t stop_handler(httpd_req_t *req) {
   flashLED(75);
-  print_client_ip(req); Log.println("\r\nStream stop requested via Web");
+  print_client_ip(req); ESP_LOGI(TAG, "\r\nStream stop requested via Web");
   streamKill = true;
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
   return httpd_resp_send(req, NULL, 0);
@@ -752,7 +757,7 @@ static esp_err_t style_handler(httpd_req_t *req) {
 
 static esp_err_t streamviewer_handler(httpd_req_t *req) {
   flashLED(75);
-  print_client_ip(req); Log.println("Stream viewer requested");
+  print_client_ip(req); ESP_LOGI(TAG, "Stream viewer requested");
   httpd_resp_set_type(req, "text/html");
   httpd_resp_set_hdr(req, "Content-Encoding", "identity");
   return httpd_resp_send(req, (const char *)streamviewer_html, streamviewer_html_len);
@@ -760,7 +765,7 @@ static esp_err_t streamviewer_handler(httpd_req_t *req) {
 
 static esp_err_t error_handler(httpd_req_t *req) {
   flashLED(75);
-  Log.println("Sending error page");
+  ESP_LOGI(TAG, "Sending error page");
   std::string s(error_html);
   size_t index;
   while ((index = s.find("<APPURL>")) != std::string::npos)
@@ -780,13 +785,13 @@ void print_client_ip(httpd_req_t *req)
   struct sockaddr_in6 addr;   // esp_http_server uses IPv6 addressing
   socklen_t addr_size = sizeof(addr);
   if (getpeername(sockfd, (struct sockaddr *)&addr, &addr_size) < 0) {
-    Log.println(   "Error getting client IP");
+    ESP_LOGI(TAG,    "Error getting client IP");
     return;
   }
   //    inet_ntop(AF_INET, &addr.sin6_addr, ipstr, sizeof(ipstr));
   inet_ntop(AF_INET, &addr.sin6_addr.un.u32_addr[3], ipstr, sizeof(ipstr));
-  Log.print ("Client IP => ");
-  Log.println(ipstr);
+  ESP_LOGI(TAG,    "Client IP => ");
+  ESP_LOGI(TAG, ipstr);
 }
 
 static esp_err_t index_handler(httpd_req_t *req) {
@@ -827,17 +832,17 @@ static esp_err_t index_handler(httpd_req_t *req) {
 
   if  (strncmp(view, "simple", sizeof(view)) == 0) {
     print_client_ip(req) ;
-    Log.print(" Simple index page requested");
-    Log.print("CPU ");
-    Log.println(xPortGetCoreID());
+    ESP_LOGI(TAG, " Simple index page requested");
+    ESP_LOGI(TAG, "CPU ");
+    ESP_LOGI(TAG, xPortGetCoreID());
     if (critERR.length() > 0) return error_handler(req);
     httpd_resp_set_type(req, "text/html");
     httpd_resp_set_hdr(req, "Content-Encoding", "identity");
     return httpd_resp_send(req, (const char *)index_simple_html, index_simple_html_len);
   } else if (strncmp(view, "full", sizeof(view)) == 0) {
     print_client_ip(req) ;
-    Log.print (" Full index page requested ");
-    Log.print("CPU "); Log.println(xPortGetCoreID());
+    ESP_LOGI(TAG,    " Full index page requested ");
+    ESP_LOGI(TAG, "CPU "); ESP_LOGI(TAG, xPortGetCoreID());
     if (critERR.length() > 0) return error_handler(req);
     httpd_resp_set_type(req, "text/html");
     httpd_resp_set_hdr(req, "Content-Encoding", "identity");
@@ -847,8 +852,8 @@ static esp_err_t index_handler(httpd_req_t *req) {
     return httpd_resp_send(req, (const char *)index_ov2640_html, index_ov2640_html_len);
   } else if (strncmp(view, "portal", sizeof(view)) == 0) {
     //Prototype captive portal landing page.
-    print_client_ip(req); Log.print("Portal page requested");
-    Log.print("CPU "); Log.println(xPortGetCoreID());
+    print_client_ip(req); ESP_LOGI(TAG, "Portal page requested");
+    ESP_LOGI(TAG, "CPU "); ESP_LOGI(TAG, xPortGetCoreID());
     std::string s(portal_html);
     size_t index;
     while ((index = s.find("<APPURL>")) != std::string::npos)
@@ -861,8 +866,8 @@ static esp_err_t index_handler(httpd_req_t *req) {
     httpd_resp_set_hdr(req, "Content-Encoding", "identity");
     return httpd_resp_send(req, (const char *)s.c_str(), s.length());
   } else  {
-    print_client_ip(req); Log.print("Unknown page requested: ");
-    Log.println(view);
+    print_client_ip(req); ESP_LOGI(TAG, "Unknown page requested: ");
+    ESP_LOGI(TAG, view);
     httpd_resp_send_404(req);
     return ESP_FAIL;
   }
@@ -973,7 +978,7 @@ void startCameraServer(int hPort, int sPort) {
   config.server_port = hPort;
   config.ctrl_port = hPort;
   //    config.core_id = 1;
-  Log.printf("Starting web server on port: '%d'\r\n", config.server_port);
+  ESP_LOGI(TAG, "Starting web server on port: '%d'\r\n", config.server_port);
   if (httpd_start(&camera_httpd, &config) == ESP_OK) {
     if (critERR.length() > 0) {
       httpd_register_uri_handler(camera_httpd, &error_uri);
@@ -995,7 +1000,7 @@ void startCameraServer(int hPort, int sPort) {
   config.server_port = sPort;
   config.ctrl_port = sPort;
   config.core_id = 0;
-  Log.printf("Starting stream server on port: '%d'\r\n", config.server_port);
+  ESP_LOGI(TAG, "Starting stream server on port: '%d'\r\n", config.server_port);
   if (httpd_start(&stream_httpd, &config) == ESP_OK) {
     if (critERR.length() > 0) {
       httpd_register_uri_handler(camera_httpd, &error_uri);

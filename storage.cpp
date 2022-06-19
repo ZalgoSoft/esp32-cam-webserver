@@ -1,3 +1,4 @@
+#include <ESP32Servo.h>
 #include "esp_camera.h"
 #include "src/jsonlib/jsonlib.h"
 #include "storage.h"
@@ -9,6 +10,8 @@ extern int lampVal;       // The current Lamp value
 extern bool autoLamp;     // Automatic lamp mode
 extern int xclk;          // Camera module clock speed
 extern int minFrameTime;  // Limits framerate
+extern Servo servo1;
+extern Servo servo2;
 extern int Servo1Pin;
 extern int Servo2Pin;
 extern int Servo_Step;

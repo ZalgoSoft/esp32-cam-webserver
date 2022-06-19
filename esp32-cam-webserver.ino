@@ -5,6 +5,8 @@
 #include <DNSServer.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
+#include <esp_log.h>
+#include <freertos/FreeRTOSConfig.h>
 #include "src/parsebytes.h"
 #include "time.h"
 #include <ESPmDNS.h>
@@ -37,7 +39,9 @@
    an accesspoint called "ESP32-CAM-CONNECT" (password: "InsecurePassword")
 
 */
-
+//#define LOG_LOCAL_LEVEL ESP_LOG_ERROR
+//esp_log_level_set("*", ESP_LOG_ERROR);
+static const char* TAG = "main";
 // Primary config, or defaults.
 #if __has_include("myconfig.h")
 struct station {
@@ -260,12 +264,12 @@ bool debugData;
 
 void debugOn() {
   debugData = true;
-  Log.println("Camera debug data is enabled (send 'd' for status dump, or any other char to disable debug)");
+  ESP_LOGI(TAGLOG, "Camera debug data is enabled (send 'd' for status dump, or any other char to disable debug)");
 }
 
 void debugOff() {
   debugData = false;
-  Log.println("Camera debug data is disabled (send 'd' for status dump, or any other char to enable debug)");
+  ESP_LOGI(TAGLOG, "Camera debug data is disabled (send 'd' for status dump, or any other char to enable debug)");
 }
 
 // Serial input (debugging controls)
@@ -275,28 +279,28 @@ void handleSerial() {
     if (cmd == 'd' ) {
       serialDump();
     } else if (cmd == 'i' ) {
-      Log.print("TaskCore0 start CPU ");
-      Log.println(xPortGetCoreID());
+      ESP_LOGI(TAGLOG, "TaskCore0 start CPU ");
+      ESP_LOGI(TAGLOG, xPortGetCoreID());
     }
     /*      else if (cmd == 'a' ) {
-            Log.println("incPrio()");
+            ESP_LOGI(TAGLOG, "incPrio()");
             xHandle = xTaskGetCurrentTaskHandle();
-            Log.println(uxTaskPriorityGet( xHandle ));
+            ESP_LOGI(TAGLOG, uxTaskPriorityGet( xHandle ));
             vTaskPrioritySet( xHandle  , uxTaskPriorityGet( xHandle) +1);
-            Log.println(uxTaskPriorityGet( xHandle ));
+            ESP_LOGI(TAGLOG, uxTaskPriorityGet( xHandle ));
           }
           else if (cmd == 'z' ) {
-            Log.println("decPrio()");
+            ESP_LOGI(TAGLOG, "decPrio()");
             xHandle = xTaskGetCurrentTaskHandle();
-            Log.println(uxTaskPriorityGet( xHandle ));
+            ESP_LOGI(TAGLOG, uxTaskPriorityGet( xHandle ));
             vTaskPrioritySet( xHandle  , uxTaskPriorityGet( xHandle) -1);
-            Log.println(uxTaskPriorityGet( xHandle ));
+            ESP_LOGI(TAGLOG, uxTaskPriorityGet( xHandle ));
           }
           else if (cmd == 'l' ) {
-            Log.println("listtasks()");
-            Log.println( "Task Name\tStatus\tPrio\tHWM\tTask\tAffinity\n");
+            ESP_LOGI(TAGLOG, "listtasks()");
+            ESP_LOGI(TAGLOG,  "Task Name\tStatus\tPrio\tHWM\tTask\tAffinity\n");
             vTaskList(&pcwriteBuffer);
-            Log.println( pcwriteBuffer);
+            ESP_LOGI(TAGLOG,  pcwriteBuffer);
           }*/
     else {
       if (debugData) debugOff();
@@ -324,10 +328,10 @@ void setLamp(int newVal) {
     // Apply a logarithmic function to the scale.
     int brightness = round((pow(2, (1 + (newVal * 0.02))) - 2) / 6 * pwmMax);
     ledcWrite(lampChannel, brightness);
-    Log.print("Lamp: ");
-    Log.print(newVal);
-    Log.print("%, pwm = ");
-    Log.println(brightness);
+    ESP_LOGI(TAGLOG, "Lamp: ");
+    ESP_LOGI(TAGLOG, newVal);
+    ESP_LOGI(TAGLOG, "%, pwm = ");
+    ESP_LOGI(TAGLOG, brightness);
   }
 #endif
 }
@@ -335,70 +339,70 @@ void setLamp(int newVal) {
 void printLocalTime(bool extraData = false) {
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo)) {
-    Log.println("Failed to obtain time");
+    ESP_LOGI(TAGLOG, "Failed to obtain time");
   } else {
-    Log.println(&timeinfo, "%H:%M:%S, %A, %B %d %Y");
+    ESP_LOGI(TAGLOG, &timeinfo, "%H:%M:%S, %A, %B %d %Y");
   }
   if (extraData) {
-    Log.printf("NTP Server: %s, GMT Offset: %li(s), DST Offset: %i(s)\r\n", ntpServer, gmtOffset_sec, daylightOffset_sec);
+    ESP_LOGI(TAGLOG, "NTP Server: %s, GMT Offset: %li(s), DST Offset: %i(s)\r\n", ntpServer, gmtOffset_sec, daylightOffset_sec);
   }
 }
 
 void TaskCore0 (void * pvParameters ) {
-  Log.print("TaskCore0 start CPU ");
-  Log.println(xPortGetCoreID());
+  ESP_LOGI(TAGLOG, "TaskCore0 start CPU ");
+  ESP_LOGI(TAGLOG, xPortGetCoreID());
   // Start the camera server
   startCameraServer(httpPort, streamPort);
   if (critERR.length() == 0) {
-    Log.printf("\r\nCamera Ready!\r\nUse '%s' to connect\r\n", httpURL);
-    Log.printf("Stream viewer available at '%sview'\r\n", streamURL);
-    Log.printf("Raw stream URL is '%s'\r\n", streamURL);
+    ESP_LOGI(TAGLOG, "\r\nCamera Ready!\r\nUse '%s' to connect\r\n", httpURL);
+    ESP_LOGI(TAGLOG, "Stream viewer available at '%sview'\r\n", streamURL);
+    ESP_LOGI(TAGLOG, "Raw stream URL is '%s'\r\n", streamURL);
 #if defined(DEBUG_DEFAULT_ON)
     debugOn();
 #else
     debugOff();
 #endif
   } else {
-    Log.printf("\r\nCamera unavailable due to initialisation errors.\r\n\r\n");
+    ESP_LOGI(TAGLOG, "\r\nCamera unavailable due to initialisation errors.\r\n\r\n");
   }
   // Info line; use for Info messages; eg 'This is a Beta!' warnings, etc. as necesscary
-  Log.print("\r\nThis is the 4.1 beta\r\n");
+  ESP_LOGI(TAGLOG, "\r\nThis is the 4.1 beta\r\n");
   // do something every 5 seconds.
   static unsigned  long last_report = millis();
   for (;;) {
-    Log.loop();
+    //Log.loop();
     if (millis() - last_report < 7 * 1000)
     {
-      vApplicationMinimalIdleHook( );
+      taskYIELD( );
     }
     else {
       //Log.print (millis());
-      //Log.print(" CPU "); Log.println(xPortGetCoreID());
+      //ESP_LOGI(TAGLOG, " CPU "); ESP_LOGI(TAGLOG, xPortGetCoreID());
       last_report = millis();
       //vTaskGetRunTimeStats( char *pcWriteBuffer );
-      vApplicationMinimalIdleHook( );
+      taskYIELD( );
     }
   }
 }
 void asyncPos (void * pvParameters ) {
-  Log.print("asyncPos start CPU ");
-  Log.println(xPortGetCoreID());
+  ESP_LOGI(TAGLOG, "asyncPos start CPU ");
+  ESP_LOGI(TAGLOG, xPortGetCoreID());
   // Start the camera server
   // Info line; use for Info messages; eg 'This is a Beta!' warnings, etc. as necesscary
-  Log.print("\r\nasyncPos thread.\r\n");
+  ESP_LOGI(TAGLOG, "\r\nasyncPos thread.\r\n");
   // do something every 5 seconds.
   bool isYreached = false;
   bool isXreached = false;
   bool isPrefPosChanged = true;
   int periodtimer = 10;
-  if ((int)pvParameters != 0 || (int)pvParameters != NULL)
+  if ((int)pvParameters != 0)// || (int)pvParameters != NULL)
     periodtimer = (int)&pvParameters;
   static unsigned  long lastTime = millis();
   for (;;) {
-    Log.loop();
+    //Log.loop();
     if (millis() - lastTime < periodtimer)
     {
-      vApplicationMinimalIdleHook( );
+      taskYIELD( );
     }
     else {
       if (ptz_y_now != ptz_y) {
@@ -421,11 +425,11 @@ void asyncPos (void * pvParameters ) {
         isXreached = true;
       if ( isYreached && isXreached && isPrefPosChanged )
       {
-        saveprefpos();
+        saveposPrefs(SPIFFS);
         isPrefPosChanged = false;
       }
       lastTime = millis();
-      vApplicationMinimalIdleHook( );
+      taskYIELD( );
     }
   }
 }
@@ -440,7 +444,7 @@ void calcURLs() {
   }
   sprintf(streamURL, "http://%s:%d/", URL_HOSTNAME, streamPort);
 #else
-  Log.println("Setting httpURL");
+  ESP_LOGI(TAGLOG, "Setting httpURL");
   if (httpPort != 80) {
     sprintf(httpURL, "http://%d.%d.%d.%d:%d/", ip[0], ip[1], ip[2], ip[3], httpPort);
   } else {
@@ -451,8 +455,8 @@ void calcURLs() {
 }
 
 void StartCamera() {
-  Log.print("StartCamera CPU ");
-  Log.println(xPortGetCoreID());
+  ESP_LOGI(TAGLOG, "StartCamera CPU ");
+  ESP_LOGI(TAGLOG, xPortGetCoreID());
   // Populate camera config structure with hardware and other defaults
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
@@ -495,9 +499,9 @@ void StartCamera() {
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
     delay(100);  // need a delay here or the next serial o/p gets missed
-    Log.printf("\r\n\r\nCRITICAL FAILURE: Camera sensor failed to initialise.\r\n\r\n");
-    Log.printf("A full (hard, power off/on) reboot will probably be needed to recover from this.\r\n");
-    Log.printf("Meanwhile; this unit will reboot in 1 minute since these errors sometime clear automatically\r\n");
+    ESP_LOGI(TAGLOG, "\r\n\r\nCRITICAL FAILURE: Camera sensor failed to initialise.\r\n\r\n");
+    ESP_LOGI(TAGLOG, "A full (hard, power off/on) reboot will probably be needed to recover from this.\r\n");
+    ESP_LOGI(TAGLOG, "Meanwhile; this unit will reboot in 1 minute since these errors sometime clear automatically\r\n");
     // Reset the I2C bus.. may help when rebooting.
     periph_module_disable(PERIPH_I2C0_MODULE); // try to shut I2C down properly in case that is the problem
     periph_module_disable(PERIPH_I2C1_MODULE);
@@ -510,7 +514,7 @@ void StartCamera() {
     esp_task_wdt_init(60, true);
     esp_task_wdt_add(NULL);
   } else {
-    Log.println("Camera init succeeded");
+    ESP_LOGI(TAGLOG, "Camera init succeeded");
 
     // Get a reference to the sensor
     sensor_t * s = esp_camera_sensor_get();
@@ -518,11 +522,11 @@ void StartCamera() {
     // Dump camera module, warn for unsupported modules.
     sensorPID = s->id.PID;
     switch (sensorPID) {
-      case OV9650_PID: Log.println("WARNING: OV9650 camera module is not properly supported, will fallback to OV2640 operation"); break;
-      case OV7725_PID: Log.println("WARNING: OV7725 camera module is not properly supported, will fallback to OV2640 operation"); break;
-      case OV2640_PID: Log.println("OV2640 camera module detected"); break;
-      case OV3660_PID: Log.println("OV3660 camera module detected"); break;
-      default: Log.println("WARNING: Camera module is unknown and not properly supported, will fallback to OV2640 operation");
+      case OV9650_PID: ESP_LOGI(TAGLOG, "WARNING: OV9650 camera module is not properly supported, will fallback to OV2640 operation"); break;
+      case OV7725_PID: ESP_LOGI(TAGLOG, "WARNING: OV7725 camera module is not properly supported, will fallback to OV2640 operation"); break;
+      case OV2640_PID: ESP_LOGI(TAGLOG, "OV2640 camera module detected"); break;
+      case OV3660_PID: ESP_LOGI(TAGLOG, "OV3660 camera module detected"); break;
+      default: ESP_LOGI(TAGLOG, "WARNING: Camera module is unknown and not properly supported, will fallback to OV2640 operation");
     }
 
     // OV3660 initial sensors are flipped vertically and colors are a bit saturated
@@ -594,22 +598,22 @@ void WifiSetup() {
   flashLED(300);
   delay(100);
   flashLED(300);
-  Log.println("Starting WiFi");
+  ESP_LOGI(TAGLOG, "Starting WiFi");
 
   // Disable power saving on WiFi to improve responsiveness
   // (https://github.com/espressif/arduino-esp32/issues/1484)
   WiFi.setSleep(false);
 
-  Log.print("Known external SSIDs: ");
+  ESP_LOGI(TAGLOG, "Known external SSIDs: ");
   if (stationCount > firstStation) {
-    for (int i = firstStation; i < stationCount; i++) Log.printf(" '%s'", stationList[i].ssid);
+    for (int i = firstStation; i < stationCount; i++) ESP_LOGI(TAGLOG, " '%s'", stationList[i].ssid);
   } else {
-    Log.print("None");
+    ESP_LOGI(TAGLOG, "None");
   }
-  Log.println();
+  //ESP_LOGI(TAGLOG, );
   byte mac[6] = {0, 0, 0, 0, 0, 0};
   WiFi.macAddress(mac);
-  Log.printf("MAC address: %02X:%02X:%02X:%02X:%02X:%02X\r\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  ESP_LOGI(TAGLOG, "MAC address: %02X:%02X:%02X:%02X:%02X:%02X\r\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
   int bestStation = -1;
   long bestRSSI = -1024;
@@ -617,21 +621,21 @@ void WifiSetup() {
   uint8_t bestBSSID[6];
   if (stationCount > firstStation) {
     // We have a list to scan
-    Log.printf("Scanning local Wifi Networks\r\n");
+    ESP_LOGI(TAGLOG, "Scanning local Wifi Networks\r\n");
     int stationsFound = WiFi.scanNetworks();
-    Log.printf("%i networks found\r\n", stationsFound);
+    ESP_LOGI(TAGLOG, "%i networks found\r\n", stationsFound);
     if (stationsFound > 0) {
       for (int i = 0; i < stationsFound; ++i) {
         // Print SSID and RSSI for each network found
         String thisSSID = WiFi.SSID(i);
         int thisRSSI = WiFi.RSSI(i);
         String thisBSSID = WiFi.BSSIDstr(i);
-        Log.printf("%3i : [%s] %s (%i)", i + 1, thisBSSID.c_str(), thisSSID.c_str(), thisRSSI);
+        ESP_LOGI(TAGLOG, "%3i : [%s] %s (%i)", i + 1, thisBSSID.c_str(), thisSSID.c_str(), thisRSSI);
         // Scan our list of known external stations
         for (int sta = firstStation; sta < stationCount; sta++) {
           if ((strcmp(stationList[sta].ssid, thisSSID.c_str()) == 0) ||
               (strcmp(stationList[sta].ssid, thisBSSID.c_str()) == 0)) {
-            Log.print("  -  Known!");
+            ESP_LOGI(TAGLOG, "  -  Known!");
             // Chose the strongest RSSI seen
             if (thisRSSI > bestRSSI) {
               bestStation = sta;
@@ -642,7 +646,7 @@ void WifiSetup() {
             }
           }
         }
-        Log.println();
+        //ESP_LOGI(TAGLOG, );
       }
     }
   } else {
@@ -653,22 +657,22 @@ void WifiSetup() {
   if (bestStation == -1) {
     if (!accesspoint) {
 #if defined(WIFI_AP_ENABLE)
-      Log.println("No known networks found, entering AccessPoint fallback mode");
+      ESP_LOGI(TAGLOG, "No known networks found, entering AccessPoint fallback mode");
       accesspoint = true;
 #else
-      Log.println("No known networks found");
+      ESP_LOGI(TAGLOG, "No known networks found");
 #endif
     } else {
-      Log.println("AccessPoint mode selected in config");
+      ESP_LOGI(TAGLOG, "AccessPoint mode selected in config");
     }
   } else {
-    Log.printf("Connecting to Wifi Network %d: [%02X:%02X:%02X:%02X:%02X:%02X] %s \r\n",
-               bestStation, bestBSSID[0], bestBSSID[1], bestBSSID[2], bestBSSID[3],
-               bestBSSID[4], bestBSSID[5], bestSSID);
+    ESP_LOGI(TAGLOG, "Connecting to Wifi Network %d: [%02X:%02X:%02X:%02X:%02X:%02X] %s \r\n",
+             bestStation, bestBSSID[0], bestBSSID[1], bestBSSID[2], bestBSSID[3],
+             bestBSSID[4], bestBSSID[5], bestSSID);
     // Apply static settings if necesscary
     if (stationList[bestStation].dhcp == false) {
 #if defined(ST_IP)
-      Log.println("Applying static IP settings");
+      ESP_LOGI(TAGLOG, "Applying static IP settings");
 #if !defined (ST_GATEWAY)  || !defined (ST_NETMASK)
 #error "You must supply both Gateway and NetMask when specifying a static IP address"
 #endif
@@ -687,7 +691,7 @@ void WifiSetup() {
 #endif
 #endif
 #else
-      Log.println("Static IP settings requested but not defined in config, falling back to dhcp");
+      ESP_LOGI(TAGLOG, "Static IP settings requested but not defined in config, falling back to dhcp");
 #endif
     }
 
@@ -700,21 +704,21 @@ void WifiSetup() {
     unsigned long start = millis();
     while ((millis() - start <= WIFI_WATCHDOG) && (WiFi.status() != WL_CONNECTED)) {
       delay(500);
-      Log.print('.');
+      ESP_LOGI(TAGLOG, '.');
     }
-    Log.println();
-    Log.begin();
+    //ESP_LOGI(TAGLOG, );
+    //Log.begin();
     // If we have connected, inform user
     if (WiFi.status() == WL_CONNECTED) {
-      Log.println("Client connection succeeded");
+      ESP_LOGI(TAGLOG, "Client connection succeeded");
       accesspoint = false;
       // Note IP details
       ip = WiFi.localIP();
       net = WiFi.subnetMask();
       gw = WiFi.gatewayIP();
-      Log.printf("IP address: %d.%d.%d.%d\r\n", ip[0], ip[1], ip[2], ip[3]);
-      Log.printf("Netmask   : %d.%d.%d.%d\r\n", net[0], net[1], net[2], net[3]);
-      Log.printf("Gateway   : %d.%d.%d.%d\r\n", gw[0], gw[1], gw[2], gw[3]);
+      ESP_LOGI(TAGLOG, "IP address: %d.%d.%d.%d\r\n", ip[0], ip[1], ip[2], ip[3]);
+      ESP_LOGI(TAGLOG, "Netmask   : %d.%d.%d.%d\r\n", net[0], net[1], net[2], net[3]);
+      ESP_LOGI(TAGLOG, "Gateway   : %d.%d.%d.%d\r\n", gw[0], gw[1], gw[2], gw[3]);
       calcURLs();
       // Flash the LED to show we are connected
       for (int i = 0; i < 5; i++) {
@@ -722,7 +726,7 @@ void WifiSetup() {
         delay(150);
       }
     } else {
-      Log.println("Client connection Failed");
+      ESP_LOGI(TAGLOG, "Client connection Failed");
       WiFi.disconnect();   // (resets the WiFi scan)
     }
   }
@@ -730,20 +734,20 @@ void WifiSetup() {
   if (accesspoint && (WiFi.status() != WL_CONNECTED)) {
     // The accesspoint has been enabled, and we have not connected to any existing networks
 #if defined(AP_CHAN)
-    Log.println("Setting up Fixed Channel AccessPoint");
-    Log.print("  SSID     : ");
-    Log.println(stationList[0].ssid);
-    Log.print("  Password : ");
-    Log.println(stationList[0].password);
-    Log.print("  Channel  : ");
-    Log.println(AP_CHAN);
+    ESP_LOGI(TAGLOG, "Setting up Fixed Channel AccessPoint");
+    ESP_LOGI(TAGLOG, "  SSID     : ");
+    ESP_LOGI(TAGLOG, stationList[0].ssid);
+    ESP_LOGI(TAGLOG, "  Password : ");
+    ESP_LOGI(TAGLOG, stationList[0].password);
+    ESP_LOGI(TAGLOG, "  Channel  : ");
+    ESP_LOGI(TAGLOG, AP_CHAN);
     WiFi.softAP(stationList[0].ssid, stationList[0].password, AP_CHAN);
 # else
-    Log.println("Setting up AccessPoint");
-    Log.print("  SSID     : ");
-    Log.println(stationList[0].ssid);
-    Log.print("  Password : ");
-    Log.println(stationList[0].password);
+    ESP_LOGI(TAGLOG, "Setting up AccessPoint");
+    ESP_LOGI(TAGLOG, "  SSID     : ");
+    ESP_LOGI(TAGLOG, stationList[0].ssid);
+    ESP_LOGI(TAGLOG, "  Password : ");
+    ESP_LOGI(TAGLOG, stationList[0].password);
     WiFi.softAP(stationList[0].ssid, stationList[0].password);
 #endif
 #if defined(AP_ADDRESS)
@@ -760,7 +764,7 @@ void WifiSetup() {
     net = WiFi.subnetMask();
     gw = WiFi.gatewayIP();
     strcpy(apName, stationList[0].ssid);
-    Log.printf("IP address: %d.%d.%d.%d\r\n", ip[0], ip[1], ip[2], ip[3]);
+    ESP_LOGI(TAGLOG, "IP address: %d.%d.%d.%d\r\n", ip[0], ip[1], ip[2], ip[3]);
     calcURLs();
     // Flash the LED to show we are connected
     for (int i = 0; i < 5; i++) {
@@ -769,7 +773,7 @@ void WifiSetup() {
     }
     // Start the DNS captive portal if requested
     if (stationList[0].dhcp == true) {
-      Log.println("Starting Captive Portal");
+      ESP_LOGI(TAGLOG, "Starting Captive Portal");
       dnsServer.start(DNS_PORT, "*", ip);
       captivePortal = true;
     }
@@ -779,11 +783,11 @@ void WifiSetup() {
 void setup() {
   Serial.begin(115200);
   Serial.setDebugOutput(true);
-  Log.addPrintStream(std::make_shared<WebSerialStream>(webSerialStream));
+  //Log.addPrintStream(std::make_shared<WebSerialStream>(webSerialStream));
   if (stationCount == 0) {
-    Log.println("\r\nFatal Error; Halting");
+    ESP_LOGI(TAGLOG, "\r\nFatal Error; Halting");
     while (true) {
-      Log.println("No wifi details have been configured; we cannot connect to existing WiFi or start our own AccessPoint, there is no point in proceeding.");
+      ESP_LOGI(TAGLOG, "No wifi details have been configured; we cannot connect to existing WiFi or start our own AccessPoint, there is no point in proceeding.");
       delay(5000);
     }
   }
@@ -791,23 +795,23 @@ void setup() {
   while ((WiFi.status() != WL_CONNECTED) && !accesspoint)  {
     WifiSetup();
   }
-  Log.begin();
-  Log.print("setup: Log.begin(), CPU ");
-  Log.println(xPortGetCoreID());
-  Log.println();
-  Log.println("====");
-  Log.print("esp32-cam-webserver: ");
-  Log.println(myName);
-  Log.print("Code Built: ");
-  Log.println(myVer);
-  Log.print("Base Release: ");
-  Log.println(baseVersion);
-  Log.println();
+  //Log.begin();
+  ESP_LOGI(TAGLOG, "setup: Log.begin(), CPU ");
+  ESP_LOGI(TAGLOG, xPortGetCoreID());
+  //ESP_LOGI(TAGLOG, );
+  ESP_LOGI(TAGLOG, "====");
+  ESP_LOGI(TAGLOG, "esp32-cam-webserver: ");
+  ESP_LOGI(TAGLOG, myName);
+  ESP_LOGI(TAGLOG, "Code Built: ");
+  ESP_LOGI(TAGLOG, myVer);
+  ESP_LOGI(TAGLOG, "Base Release: ");
+  ESP_LOGI(TAGLOG, baseVersion);
+  //ESP_LOGI(TAGLOG, );
   // Warn if no PSRAM is detected (typically user error with board selection in the IDE)
   if (!psramFound()) {
-    Log.println("\r\nFatal Error; Halting");
+    ESP_LOGI(TAGLOG, "\r\nFatal Error; Halting");
     while (true) {
-      Log.println("No PSRAM found; camera cannot be initialised: Please check the board config for your module.");
+      ESP_LOGI(TAGLOG, "No PSRAM found; camera cannot be initialised: Please check the board config for your module.");
       delay(5000);
     }
   }
@@ -832,7 +836,7 @@ void setup() {
     loadPrefs(SPIFFS);
     loadposPrefs(SPIFFS);
   } else {
-    Log.println("No Internal Filesystem, cannot load or save preferences");
+    ESP_LOGI(TAGLOG, "No Internal Filesystem, cannot load or save preferences");
   }
 
   /*
@@ -845,7 +849,7 @@ void setup() {
   // Set up OTA
   if (otaEnabled) {
     // Start OTA once connected
-    Log.println("Setting up OTA");
+    ESP_LOGI(TAGLOG, "Setting up OTA");
     // Port defaults to 3232
     // ArduinoOTA.setPort(3232);
     // Hostname defaults to esp3232-[MAC]
@@ -853,9 +857,9 @@ void setup() {
     // No authentication by default
     if (strlen(otaPassword) != 0) {
       ArduinoOTA.setPassword(otaPassword);
-      Log.printf("OTA Password: %s\n\r", otaPassword);
+      ESP_LOGI(TAGLOG, "OTA Password: %s\n\r", otaPassword);
     } else {
-      Log.printf("\r\nNo OTA password has been set! (insecure)\r\n\r\n");
+      ESP_LOGI(TAGLOG, "\r\nNo OTA password has been set! (insecure)\r\n\r\n");
     }
     ArduinoOTA
     .onStart([]() {
@@ -865,54 +869,54 @@ void setup() {
       else // U_SPIFFS
         // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
         type = "filesystem";
-      Log.println("Start updating " + type);
-      Log.print("setup ArduinoOTA.onStart CPU ");
-      Log.println(xPortGetCoreID());
+      ESP_LOGI(TAGLOG, "Start updating " + type);
+      ESP_LOGI(TAGLOG, "setup ArduinoOTA.onStart CPU ");
+      ESP_LOGI(TAGLOG, xPortGetCoreID());
       // Stop the camera since OTA will crash the module if it is running.
       // the unit will need rebooting to restart it, either by OTA on success, or manually by the user
-      Log.println("Stopping Camera");
+      ESP_LOGI(TAGLOG, "Stopping Camera");
       esp_err_t err = esp_camera_deinit();
       critERR = "<h1>OTA Has been started</h1><hr><p>Camera has Halted!</p>";
       critERR += "<p>Wait for OTA to finish and reboot, or <a href=\"control?var=reboot&val=0\" title=\"Reboot Now (may interrupt OTA)\">reboot manually</a> to recover</p>";
     })
     .onEnd([]() {
-      Log.println("\r\nEnd");
+      ESP_LOGI(TAGLOG, "\r\nEnd");
     })
     .onProgress([](unsigned int progress, unsigned int total) {
-      Log.printf("Progress: %u%%\r", (progress / (total / 100)));
+      ESP_LOGI(TAGLOG, "Progress: %u%%\r", (progress / (total / 100)));
     })
     .onError([](ota_error_t error) {
-      Log.printf("Error[%u]: ", error);
-      if (error == OTA_AUTH_ERROR) Log.println("Auth Failed");
-      else if (error == OTA_BEGIN_ERROR) Log.println("Begin Failed");
-      else if (error == OTA_CONNECT_ERROR) Log.println("Connect Failed");
-      else if (error == OTA_RECEIVE_ERROR) Log.println("Receive Failed");
-      else if (error == OTA_END_ERROR) Log.println("End Failed");
+      ESP_LOGI(TAGLOG, "Error[%u]: ", error);
+      if (error == OTA_AUTH_ERROR) ESP_LOGI(TAGLOG, "Auth Failed");
+      else if (error == OTA_BEGIN_ERROR) ESP_LOGI(TAGLOG, "Begin Failed");
+      else if (error == OTA_CONNECT_ERROR) ESP_LOGI(TAGLOG, "Connect Failed");
+      else if (error == OTA_RECEIVE_ERROR) ESP_LOGI(TAGLOG, "Receive Failed");
+      else if (error == OTA_END_ERROR) ESP_LOGI(TAGLOG, "End Failed");
     });
     ArduinoOTA.begin();
   } else {
-    Log.println("OTA is disabled");
+    ESP_LOGI(TAGLOG, "OTA is disabled");
 
     if (!MDNS.begin(mdnsName)) {
-      Log.println("Error setting up MDNS responder!");
+      ESP_LOGI(TAGLOG, "Error setting up MDNS responder!");
     }
-    Log.println("mDNS responder started");
+    ESP_LOGI(TAGLOG, "mDNS responder started");
   }
 
   //MDNS Config -- note that if OTA is NOT enabled this needs prior steps!
   MDNS.addService("http", "tcp", 80);
-  Log.println("Added HTTP service to MDNS server");
+  ESP_LOGI(TAGLOG, "Added HTTP service to MDNS server");
 
   MDNS.addService("webserial", "tcp", 8514);
-  Log.println("Added webserial service to MDNS server");
+  ESP_LOGI(TAGLOG, "Added webserial service to MDNS server");
 
   // Set time via NTP server when enabled
   if (haveTime) {
-    Log.print("Time: ");
+    ESP_LOGI(TAGLOG, "Time: ");
     configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
     printLocalTime(true);
   } else {
-    Log.println("Time functions disabled");
+    ESP_LOGI(TAGLOG, "Time functions disabled");
   }
 
   // Gather static values used when dumping status; these are slow functions, so just do them once during startup
@@ -929,15 +933,15 @@ void setup() {
     else setLamp(lampVal);
 #endif
   } else {
-    Log.println("No lamp, or lamp disabled in config");
+    ESP_LOGI(TAGLOG, "No lamp, or lamp disabled in config");
   }
 
 
   // As a final init step chomp out the serial buffer in case we have recieved mis-keys or garbage during startup
   while (Serial.available()) Serial.read();
-  xTaskCreatePinnedToCore(TaskCore0, "TaskCore0",  1000,  NULL,  1, &TaskCore0Handle,  0);
+  xTaskCreatePinnedToCore(TaskCore0, "TaskCore0",  1000,  NULL,  tskIDLE_PRIORITY + 1, &TaskCore0Handle,  0);
   int pvPeriodtimer = 10;
-  xTaskCreatePinnedToCore(asyncPos,  "asyncPos",   1000,  pvPeriodtimer,  0, &asyncPos1Handle,  1);
+  xTaskCreatePinnedToCore(asyncPos,  "asyncPos",   1000,  ( void* ) &pvPeriodtimer,  tskIDLE_PRIORITY, &asyncPos1Handle,  1);
 }
 
 
@@ -965,7 +969,7 @@ void loop() {
       // We are connected, wait a bit and re-check
       if (warned) {
         // Tell the user if we have just reconnected
-        Log.println("WiFi reconnected");
+        ESP_LOGI(TAGLOG, "WiFi reconnected");
         warned = false;
       }
       // loop here for WIFI_WATCHDOG, turning debugData true/false depending on serial input..
@@ -978,11 +982,11 @@ void loop() {
     } else {
       // disconnected; attempt to reconnect
       if (!warned) {
-        Log.print("loop CPU ");
-        Log.println(xPortGetCoreID());
+        ESP_LOGI(TAGLOG, "loop CPU ");
+        ESP_LOGI(TAGLOG, xPortGetCoreID());
         // Tell the user if we just disconnected
         WiFi.disconnect();  // ensures disconnect is complete, wifi scan cleared
-        Log.println("WiFi disconnected, retrying");
+        ESP_LOGI(TAGLOG, "WiFi disconnected, retrying");
         warned = true;
       }
       WifiSetup();
