@@ -395,8 +395,8 @@ void asyncPos (void * pvParameters ) {
   bool isXreached = false;
   bool isPrefPosChanged = true;
   int periodtimer = 10;
-  if ((int)pvParameters != 0)// || (int)pvParameters != NULL)
-    periodtimer = (int)&pvParameters;
+  if ((int&)pvParameters != 0 && (int&)pvParameters > 0 && (int&)pvParameters < 100 )// || (int)pvParameters != NULL)
+    periodtimer = (int&)pvParameters;
   static unsigned  long lastTime = millis();
   for (;;) {
     //Log.loop();
@@ -941,7 +941,7 @@ void setup() {
   while (Serial.available()) Serial.read();
   xTaskCreatePinnedToCore(TaskCore0, "TaskCore0",  1000,  NULL,  tskIDLE_PRIORITY + 1, &TaskCore0Handle,  0);
   int pvPeriodtimer = 10;
-  xTaskCreatePinnedToCore(asyncPos,  "asyncPos",   1000,  ( void* ) &pvPeriodtimer,  tskIDLE_PRIORITY, &asyncPos1Handle,  1);
+  xTaskCreatePinnedToCore(asyncPos,  "asyncPos",   1000,  ( void* ) pvPeriodtimer,  tskIDLE_PRIORITY, &asyncPos1Handle,  1);
 }
 
 
