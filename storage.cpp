@@ -14,6 +14,8 @@ extern int Servo2Pin;
 extern int Servo_Step;
 extern int ptz_y;
 extern int ptz_x;
+extern int ptz_y_now;
+extern int ptz_x_now;
 
 /*
  * Useful utility when debugging...
@@ -147,6 +149,48 @@ void loadPrefs(fs::FS &fs){
   }
 }
 
+void loadposPrefs(fs::FS &fs){
+  if (fs.exists(PREFERENCES_POS_FILE)) {
+    // read file into a string
+    String prefs;
+    Serial.printf("Loading preferences pos from file %s\r\n", PREFERENCES_POS_FILE);
+    File file = fs.open(PREFERENCES_POS_FILE, FILE_READ);
+    if (!file) {
+      Serial.println("Failed to open preferences pos file for reading, maybe corrupt, removing");
+      removeposPrefs(SPIFFS);
+      return;
+    }
+    size_t size = file.size();
+    if (size > PREFERENCES_MAX_SIZE) {
+      Serial.println("Preferences pos file size is too large, maybe corrupt, removing");
+      removeposPrefs(SPIFFS);
+      return;
+    }
+    while (file.available()) {
+        prefs += char(file.read());
+        if (prefs.length() > size) {
+          // corrupted SPIFFS files can return data beyond their declared size.
+          Serial.println("Preferences pos file failed to load properly, appears to be corrupt, removing");
+          removeposPrefs(SPIFFS);
+          return;
+        }
+    }
+    ptz_x_now = jsonExtract(prefs, "ptz_x_now").toInt();
+    ptz_y_now = jsonExtract(prefs, "ptz_y_now").toInt();
+    // close the file
+    file.close();
+//    dumpPrefs(SPIFFS);
+  } else {
+    ptz_y_now = ptz_y;
+    ptz_x_now = ptz_x;
+    servo1.write(ptz_y);
+    servo2.write(ptz_x);
+    saveposPrefs(SPIFFS);
+    Serial.printf("Preference pos file %s not found; using system defaults.\r\n", PREFERENCES_POS_FILE);
+  }
+}
+
+
 void savePrefs(fs::FS &fs){
   if (fs.exists(PREFERENCES_FILE)) {
     Serial.printf("Updating %s\r\n", PREFERENCES_FILE);
@@ -189,15 +233,45 @@ void savePrefs(fs::FS &fs){
   p+=sprintf(p, "\"rotate\":\"%d\",", myRotation);
   p+=sprintf(p, "\"servo1_pin\":%u,", Servo1Pin );
   p+=sprintf(p, "\"servo2_pin\":%u,", Servo2Pin );
-  p+=sprintf(p, "\"servo_step\":%u,",  Servo_Step );
+  p+=sprintf(p, "\"servo_step\":%u,", Servo_Step );
   p+=sprintf(p, "\"ptz_y\":%u,",  ptz_y );
-  p+=sprintf(p, "\"ptz_x\":%u",ptz_x);
+  p+=sprintf(p, "\"ptz_x\":%u",   ptz_x );
 
   *p++ = '}';
   *p++ = 0;
   file.print(json_response);
   file.close();
   dumpPrefs(SPIFFS);
+}
+
+void saveposPrefs(fs::FS &fs){
+  if (fs.exists(PREFERENCES_POS_FILE)) {
+    Serial.printf("Updating %s\r\n", PREFERENCES_POS_FILE);
+  } else {
+    Serial.printf("Creating %s\r\n", PREFERENCES_POS_FILE);
+  }
+  File file = fs.open(PREFERENCES_POS_FILE, FILE_WRITE);
+  static char json_response[64];
+  char * p = json_response;
+  *p++ = '{';
+  p+=sprintf(p, "\"ptz_y_now\":%u,",  ptz_y_now);
+  p+=sprintf(p, "\"ptz_x_now\":%u",ptz_x_now);
+  *p++ = '}';
+  *p++ = 0;
+  file.print(json_response);
+  file.close();
+//  dumpPrefs(SPIFFS);
+}
+
+void removeposPrefs(fs::FS &fs) {
+  if (fs.exists(PREFERENCES_POS_FILE)) {
+    Serial.printf("Removing %s\r\n", PREFERENCES_POS_FILE);
+    if (!fs.remove(PREFERENCES_POS_FILE)) {
+      Serial.println("Error removing preferences pos");
+    }
+  } else {
+    Serial.println("No saved preferences pos file to remove");
+  }
 }
 
 void removePrefs(fs::FS &fs) {

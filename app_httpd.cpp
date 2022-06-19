@@ -451,7 +451,7 @@ static esp_err_t cmd_handler(httpd_req_t *req) {
     if (!strcmp(value, "up" )) {
       if (ptz_y <= 180) {
         ptz_y += Servo_Step;
-        servo1.write(ptz_y);
+//        servo1.write(ptz_y);
       }
       Log.printf("PTZ: %i\t%i\t", ptz_x, ptz_y);
       Log.println("Up");
@@ -459,7 +459,7 @@ static esp_err_t cmd_handler(httpd_req_t *req) {
     else if (!strcmp(value,  "left" )) {
       if (ptz_x <= 180) {
         ptz_x += Servo_Step;
-        servo2.write(ptz_x);
+//        servo2.write(ptz_x);
       }
       Log.printf("PTZ: %i\t%i\t", ptz_x, ptz_y);
       Log.println("Left");
@@ -467,7 +467,7 @@ static esp_err_t cmd_handler(httpd_req_t *req) {
     else if (!strcmp(value, "right" )) {
       if (ptz_x >= 0) {
         ptz_x -= Servo_Step;
-        servo2.write(ptz_x);
+//        servo2.write(ptz_x);
       }
       Log.printf("PTZ: %i\t%i\t", ptz_x, ptz_y);
       Log.println("Right");
@@ -475,7 +475,7 @@ static esp_err_t cmd_handler(httpd_req_t *req) {
     else if (!strcmp(value, "down" )) {
       if (ptz_y >= 0) {
         ptz_y -= Servo_Step;
-        servo1.write(ptz_y);
+//        servo1.write(ptz_y);
       }
       Log.printf("PTZ: %i\t%i\t" , ptz_x , ptz_y);
       Log.println("Down");
@@ -483,22 +483,22 @@ static esp_err_t cmd_handler(httpd_req_t *req) {
     else if (!strcmp(value, "center" )) {
       ptz_x = 90;
       ptz_y = 90;
-      servo1.write(ptz_y);
-      servo2.write(ptz_x);
+//      servo1.write(ptz_y);
+//      servo2.write(ptz_x);
       Log.printf("PTZ: %i\t%i\t", ptz_x, ptz_y);
       Log.println("Center");
     }
   } else if (!strcmp(variable, "ptz_x")) {
     if (val >= 0 && val <= 180 ) {
       ptz_x = val;
-      servo2.write(ptz_x);
+//      servo2.write(ptz_x);
       Log.printf("PTZ: %i\t", ptz_x);
       Log.println("PTZ pos x");
     }
   } else if (!strcmp(variable, "ptz_y")) {
     if (val >= 0 && val <= 180 ) {
       ptz_y = val;
-      servo1.write(ptz_y);
+//      servo1.write(ptz_y);
       Log.printf("PTZ: %i\t", ptz_y);
       Log.println("PTZ pos y");
     }

@@ -11,7 +11,6 @@
 
 #include <ESP32Servo.h>
 
-char *pcwriteBuffer[2048];
 
 /* This sketch is a extension/expansion/reork of the 'official' ESP32 Camera example
     sketch from Expressif:
@@ -63,6 +62,9 @@ stationList[] = {{"ESP32-CAM-CONNECT", "InsecurePassword", true}};
 #include <WebSerialStream.h>
 WebSerialStream webSerialStream = WebSerialStream(8514);
 TaskHandle_t TaskCore0Handle;
+TaskHandle_t asyncPos1Handle;
+TaskHandle_t xHandle;
+const TickType_t xDelay = 10;
 // Upstream version string
 #include "src/version.h"
 
@@ -81,8 +83,10 @@ Servo servo2;
 int Servo1Pin = 14;
 int Servo2Pin  = 15;
 int Servo_Step = 5;
-int ptz_y = 64;
+int ptz_y = 120;
 int ptz_x = 64;
+int ptz_y_now = 120;
+int ptz_x_now = 64;
 
 // Sketch Info
 int sketchSize;
@@ -264,7 +268,6 @@ void debugOff() {
   Log.println("Camera debug data is disabled (send 'd' for status dump, or any other char to enable debug)");
 }
 
-TaskHandle_t xHandle;
 // Serial input (debugging controls)
 void handleSerial() {
   if (Serial.available()) {
@@ -275,665 +278,714 @@ void handleSerial() {
       Log.print("TaskCore0 start CPU ");
       Log.println(xPortGetCoreID());
     }
-/*      else if (cmd == 'a' ) {
-        Log.println("incPrio()");
-        xHandle = xTaskGetCurrentTaskHandle();
-        Log.println(uxTaskPriorityGet( xHandle ));
-        vTaskPrioritySet( xHandle  , uxTaskPriorityGet( xHandle) +1);
-        Log.println(uxTaskPriorityGet( xHandle ));
-      }
-      else if (cmd == 'z' ) {
-        Log.println("decPrio()");
-        xHandle = xTaskGetCurrentTaskHandle();
-        Log.println(uxTaskPriorityGet( xHandle ));
-        vTaskPrioritySet( xHandle  , uxTaskPriorityGet( xHandle) -1);
-        Log.println(uxTaskPriorityGet( xHandle ));
-      }
-      else if (cmd == 'l' ) {
-        Log.println("listtasks()");
-        Log.println( "Task Name\tStatus\tPrio\tHWM\tTask\tAffinity\n");
-        vTaskList(&pcwriteBuffer);
-        Log.println( pcwriteBuffer);
-      }*/
-      else {
-        if (debugData) debugOff();
-        else debugOn();
-      }
+    /*      else if (cmd == 'a' ) {
+            Log.println("incPrio()");
+            xHandle = xTaskGetCurrentTaskHandle();
+            Log.println(uxTaskPriorityGet( xHandle ));
+            vTaskPrioritySet( xHandle  , uxTaskPriorityGet( xHandle) +1);
+            Log.println(uxTaskPriorityGet( xHandle ));
+          }
+          else if (cmd == 'z' ) {
+            Log.println("decPrio()");
+            xHandle = xTaskGetCurrentTaskHandle();
+            Log.println(uxTaskPriorityGet( xHandle ));
+            vTaskPrioritySet( xHandle  , uxTaskPriorityGet( xHandle) -1);
+            Log.println(uxTaskPriorityGet( xHandle ));
+          }
+          else if (cmd == 'l' ) {
+            Log.println("listtasks()");
+            Log.println( "Task Name\tStatus\tPrio\tHWM\tTask\tAffinity\n");
+            vTaskList(&pcwriteBuffer);
+            Log.println( pcwriteBuffer);
+          }*/
+    else {
+      if (debugData) debugOff();
+      else debugOn();
     }
-    while (Serial.available()) Serial.read();  // chomp the buffer
   }
+  while (Serial.available()) Serial.read();  // chomp the buffer
+}
 
-  // Notification LED
-  void flashLED(int flashtime) {
+// Notification LED
+void flashLED(int flashtime) {
 #if defined(LED_PIN)                // If we have it; flash it.
-    digitalWrite(LED_PIN, LED_ON);  // On at full power.
-    delay(flashtime);               // delay
-    digitalWrite(LED_PIN, LED_OFF); // turn Off
+  digitalWrite(LED_PIN, LED_ON);  // On at full power.
+  delay(flashtime);               // delay
+  digitalWrite(LED_PIN, LED_OFF); // turn Off
 #else
-    return;                         // No notifcation LED, do nothing, no delay
+  return;                         // No notifcation LED, do nothing, no delay
 #endif
-  }
+}
 
-  // Lamp Control
-  void setLamp(int newVal) {
+// Lamp Control
+void setLamp(int newVal) {
 #if defined(LAMP_PIN)
-    if (newVal != -1) {
-      // Apply a logarithmic function to the scale.
-      int brightness = round((pow(2, (1 + (newVal * 0.02))) - 2) / 6 * pwmMax);
-      ledcWrite(lampChannel, brightness);
-      Log.print("Lamp: ");
-      Log.print(newVal);
-      Log.print("%, pwm = ");
-      Log.println(brightness);
-    }
+  if (newVal != -1) {
+    // Apply a logarithmic function to the scale.
+    int brightness = round((pow(2, (1 + (newVal * 0.02))) - 2) / 6 * pwmMax);
+    ledcWrite(lampChannel, brightness);
+    Log.print("Lamp: ");
+    Log.print(newVal);
+    Log.print("%, pwm = ");
+    Log.println(brightness);
+  }
 #endif
-  }
+}
 
-  void printLocalTime(bool extraData = false) {
-    struct tm timeinfo;
-    if (!getLocalTime(&timeinfo)) {
-      Log.println("Failed to obtain time");
-    } else {
-      Log.println(&timeinfo, "%H:%M:%S, %A, %B %d %Y");
-    }
-    if (extraData) {
-      Log.printf("NTP Server: %s, GMT Offset: %li(s), DST Offset: %i(s)\r\n", ntpServer, gmtOffset_sec, daylightOffset_sec);
-    }
+void printLocalTime(bool extraData = false) {
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo)) {
+    Log.println("Failed to obtain time");
+  } else {
+    Log.println(&timeinfo, "%H:%M:%S, %A, %B %d %Y");
   }
+  if (extraData) {
+    Log.printf("NTP Server: %s, GMT Offset: %li(s), DST Offset: %i(s)\r\n", ntpServer, gmtOffset_sec, daylightOffset_sec);
+  }
+}
 
-  void TaskCore0 (void * pvParameters ) {
-    Log.print("TaskCore0 start CPU ");
-    Log.println(xPortGetCoreID());
-    // Start the camera server
-    startCameraServer(httpPort, streamPort);
-    if (critERR.length() == 0) {
-      Log.printf("\r\nCamera Ready!\r\nUse '%s' to connect\r\n", httpURL);
-      Log.printf("Stream viewer available at '%sview'\r\n", streamURL);
-      Log.printf("Raw stream URL is '%s'\r\n", streamURL);
+void TaskCore0 (void * pvParameters ) {
+  Log.print("TaskCore0 start CPU ");
+  Log.println(xPortGetCoreID());
+  // Start the camera server
+  startCameraServer(httpPort, streamPort);
+  if (critERR.length() == 0) {
+    Log.printf("\r\nCamera Ready!\r\nUse '%s' to connect\r\n", httpURL);
+    Log.printf("Stream viewer available at '%sview'\r\n", streamURL);
+    Log.printf("Raw stream URL is '%s'\r\n", streamURL);
 #if defined(DEBUG_DEFAULT_ON)
-      debugOn();
+    debugOn();
 #else
-      debugOff();
+    debugOff();
 #endif
-    } else {
-      Log.printf("\r\nCamera unavailable due to initialisation errors.\r\n\r\n");
+  } else {
+    Log.printf("\r\nCamera unavailable due to initialisation errors.\r\n\r\n");
+  }
+  // Info line; use for Info messages; eg 'This is a Beta!' warnings, etc. as necesscary
+  Log.print("\r\nThis is the 4.1 beta\r\n");
+  // do something every 5 seconds.
+  static unsigned  long last_report = millis();
+  for (;;) {
+    Log.loop();
+    if (millis() - last_report < 7 * 1000)
+    {
+      vApplicationMinimalIdleHook( );
     }
-    // Info line; use for Info messages; eg 'This is a Beta!' warnings, etc. as necesscary
-    Log.print("\r\nThis is the 4.1 beta\r\n");
-    // do something every 5 seconds.
-    static unsigned  long last_report = millis();
-    for (;;) {
-      Log.loop();
-      if (millis() - last_report < 8 * 1000)
+    else {
+      //Log.print (millis());
+      //Log.print(" CPU "); Log.println(xPortGetCoreID());
+      last_report = millis();
+      //vTaskGetRunTimeStats( char *pcWriteBuffer );
+      vApplicationMinimalIdleHook( );
+    }
+  }
+}
+void asyncPos (void * pvParameters ) {
+  Log.print("asyncPos start CPU ");
+  Log.println(xPortGetCoreID());
+  // Start the camera server
+  // Info line; use for Info messages; eg 'This is a Beta!' warnings, etc. as necesscary
+  Log.print("\r\nasyncPos thread.\r\n");
+  // do something every 5 seconds.
+  bool isYreached = false;
+  bool isXreached = false;
+  bool isPrefPosChanged = true;
+  int periodtimer = 10;
+  if ((int)pvParameters != 0 || (int)pvParameters != NULL)
+    periodtimer = (int)&pvParameters;
+  static unsigned  long lastTime = millis();
+  for (;;) {
+    Log.loop();
+    if (millis() - lastTime < periodtimer)
+    {
+      vApplicationMinimalIdleHook( );
+    }
+    else {
+      if (ptz_y_now != ptz_y) {
+        isYreached = false;
+        isPrefPosChanged = true;
+        if (ptz_y < ptz_y_now) ptz_y_now--;
+        else ptz_y_now ++;
+        servo1.write(ptz_y_now);
+      }
+      else
+        isYreached = true;
+      if (ptz_x_now != ptz_x) {
+        isXreached = false;
+        isPrefPosChanged = true;
+        if (ptz_x < ptz_x_now) ptz_x_now--;
+        else ptz_x_now++;
+        servo2.write(ptz_x_now);
+      }
+      else
+        isXreached = true;
+      if ( isYreached && isXreached && isPrefPosChanged )
       {
-       vApplicationMinimalIdleHook( ); 
+        saveprefpos();
+        isPrefPosChanged = false;
       }
-      else {
-        //Log.print (millis());
-        //Log.print(" CPU "); Log.println(xPortGetCoreID());
-        last_report = millis();
-        vTaskGetRunTimeStats( char *pcWriteBuffer );
-
-        vApplicationMinimalIdleHook( ); 
-      }
+      lastTime = millis();
+      vApplicationMinimalIdleHook( );
     }
   }
+}
 
-  void calcURLs() {
-    // Set the URL's
+void calcURLs() {
+  // Set the URL's
 #if defined(URL_HOSTNAME)
-    if (httpPort != 80) {
-      sprintf(httpURL, "http://%s:%d/", URL_HOSTNAME, httpPort);
-    } else {
-      sprintf(httpURL, "http://%s/", URL_HOSTNAME);
-    }
-    sprintf(streamURL, "http://%s:%d/", URL_HOSTNAME, streamPort);
-#else
-    Log.println("Setting httpURL");
-    if (httpPort != 80) {
-      sprintf(httpURL, "http://%d.%d.%d.%d:%d/", ip[0], ip[1], ip[2], ip[3], httpPort);
-    } else {
-      sprintf(httpURL, "http://%d.%d.%d.%d/", ip[0], ip[1], ip[2], ip[3]);
-    }
-    sprintf(streamURL, "http://%d.%d.%d.%d:%d/", ip[0], ip[1], ip[2], ip[3], streamPort);
-#endif
+  if (httpPort != 80) {
+    sprintf(httpURL, "http://%s:%d/", URL_HOSTNAME, httpPort);
+  } else {
+    sprintf(httpURL, "http://%s/", URL_HOSTNAME);
   }
+  sprintf(streamURL, "http://%s:%d/", URL_HOSTNAME, streamPort);
+#else
+  Log.println("Setting httpURL");
+  if (httpPort != 80) {
+    sprintf(httpURL, "http://%d.%d.%d.%d:%d/", ip[0], ip[1], ip[2], ip[3], httpPort);
+  } else {
+    sprintf(httpURL, "http://%d.%d.%d.%d/", ip[0], ip[1], ip[2], ip[3]);
+  }
+  sprintf(streamURL, "http://%d.%d.%d.%d:%d/", ip[0], ip[1], ip[2], ip[3], streamPort);
+#endif
+}
 
-  void StartCamera() {
-    Log.print("StartCamera CPU ");
-    Log.println(xPortGetCoreID());
-    // Populate camera config structure with hardware and other defaults
-    config.ledc_channel = LEDC_CHANNEL_0;
-    config.ledc_timer = LEDC_TIMER_0;
-    config.pin_d0 = Y2_GPIO_NUM;
-    config.pin_d1 = Y3_GPIO_NUM;
-    config.pin_d2 = Y4_GPIO_NUM;
-    config.pin_d3 = Y5_GPIO_NUM;
-    config.pin_d4 = Y6_GPIO_NUM;
-    config.pin_d5 = Y7_GPIO_NUM;
-    config.pin_d6 = Y8_GPIO_NUM;
-    config.pin_d7 = Y9_GPIO_NUM;
-    config.pin_xclk = XCLK_GPIO_NUM;
-    config.pin_pclk = PCLK_GPIO_NUM;
-    config.pin_vsync = VSYNC_GPIO_NUM;
-    config.pin_href = HREF_GPIO_NUM;
-    config.pin_sscb_sda = SIOD_GPIO_NUM;
-    config.pin_sscb_scl = SIOC_GPIO_NUM;
-    config.pin_pwdn = PWDN_GPIO_NUM;
-    config.pin_reset = RESET_GPIO_NUM;
-    config.xclk_freq_hz = xclk * 1000000;
-    config.pixel_format = PIXFORMAT_JPEG;
-    config.grab_mode = CAMERA_GRAB_LATEST;
-    // Pre-allocate large buffers
-    if (psramFound()) {
-      config.frame_size = FRAMESIZE_UXGA;
-      config.jpeg_quality = 10;
-      config.fb_count = 2;
-    } else {
-      config.frame_size = FRAMESIZE_SVGA;
-      config.jpeg_quality = 12;
-      config.fb_count = 1;
-    }
+void StartCamera() {
+  Log.print("StartCamera CPU ");
+  Log.println(xPortGetCoreID());
+  // Populate camera config structure with hardware and other defaults
+  config.ledc_channel = LEDC_CHANNEL_0;
+  config.ledc_timer = LEDC_TIMER_0;
+  config.pin_d0 = Y2_GPIO_NUM;
+  config.pin_d1 = Y3_GPIO_NUM;
+  config.pin_d2 = Y4_GPIO_NUM;
+  config.pin_d3 = Y5_GPIO_NUM;
+  config.pin_d4 = Y6_GPIO_NUM;
+  config.pin_d5 = Y7_GPIO_NUM;
+  config.pin_d6 = Y8_GPIO_NUM;
+  config.pin_d7 = Y9_GPIO_NUM;
+  config.pin_xclk = XCLK_GPIO_NUM;
+  config.pin_pclk = PCLK_GPIO_NUM;
+  config.pin_vsync = VSYNC_GPIO_NUM;
+  config.pin_href = HREF_GPIO_NUM;
+  config.pin_sscb_sda = SIOD_GPIO_NUM;
+  config.pin_sscb_scl = SIOC_GPIO_NUM;
+  config.pin_pwdn = PWDN_GPIO_NUM;
+  config.pin_reset = RESET_GPIO_NUM;
+  config.xclk_freq_hz = xclk * 1000000;
+  config.pixel_format = PIXFORMAT_JPEG;
+  config.grab_mode = CAMERA_GRAB_LATEST;
+  // Pre-allocate large buffers
+  if (psramFound()) {
+    config.frame_size = FRAMESIZE_UXGA;
+    config.jpeg_quality = 10;
+    config.fb_count = 2;
+  } else {
+    config.frame_size = FRAMESIZE_SVGA;
+    config.jpeg_quality = 12;
+    config.fb_count = 1;
+  }
 
 #if defined(CAMERA_MODEL_ESP_EYE)
-    pinMode(13, INPUT_PULLUP);
-    pinMode(14, INPUT_PULLUP);
+  pinMode(13, INPUT_PULLUP);
+  pinMode(14, INPUT_PULLUP);
 #endif
 
-    // camera init
-    esp_err_t err = esp_camera_init(&config);
-    if (err != ESP_OK) {
-      delay(100);  // need a delay here or the next serial o/p gets missed
-      Log.printf("\r\n\r\nCRITICAL FAILURE: Camera sensor failed to initialise.\r\n\r\n");
-      Log.printf("A full (hard, power off/on) reboot will probably be needed to recover from this.\r\n");
-      Log.printf("Meanwhile; this unit will reboot in 1 minute since these errors sometime clear automatically\r\n");
-      // Reset the I2C bus.. may help when rebooting.
-      periph_module_disable(PERIPH_I2C0_MODULE); // try to shut I2C down properly in case that is the problem
-      periph_module_disable(PERIPH_I2C1_MODULE);
-      periph_module_reset(PERIPH_I2C0_MODULE);
-      periph_module_reset(PERIPH_I2C1_MODULE);
-      // And set the error text for the UI
-      critERR = "<h1>Error!</h1><hr><p>Camera module failed to initialise!</p><p>Please reset (power off/on) the camera.</p>";
-      critERR += "<p>We will continue to reboot once per minute since this error sometimes clears automatically.</p>";
-      // Start a 60 second watchdog timer
-      esp_task_wdt_init(60, true);
-      esp_task_wdt_add(NULL);
-    } else {
-      Log.println("Camera init succeeded");
+  // camera init
+  esp_err_t err = esp_camera_init(&config);
+  if (err != ESP_OK) {
+    delay(100);  // need a delay here or the next serial o/p gets missed
+    Log.printf("\r\n\r\nCRITICAL FAILURE: Camera sensor failed to initialise.\r\n\r\n");
+    Log.printf("A full (hard, power off/on) reboot will probably be needed to recover from this.\r\n");
+    Log.printf("Meanwhile; this unit will reboot in 1 minute since these errors sometime clear automatically\r\n");
+    // Reset the I2C bus.. may help when rebooting.
+    periph_module_disable(PERIPH_I2C0_MODULE); // try to shut I2C down properly in case that is the problem
+    periph_module_disable(PERIPH_I2C1_MODULE);
+    periph_module_reset(PERIPH_I2C0_MODULE);
+    periph_module_reset(PERIPH_I2C1_MODULE);
+    // And set the error text for the UI
+    critERR = "<h1>Error!</h1><hr><p>Camera module failed to initialise!</p><p>Please reset (power off/on) the camera.</p>";
+    critERR += "<p>We will continue to reboot once per minute since this error sometimes clears automatically.</p>";
+    // Start a 60 second watchdog timer
+    esp_task_wdt_init(60, true);
+    esp_task_wdt_add(NULL);
+  } else {
+    Log.println("Camera init succeeded");
 
-      // Get a reference to the sensor
-      sensor_t * s = esp_camera_sensor_get();
+    // Get a reference to the sensor
+    sensor_t * s = esp_camera_sensor_get();
 
-      // Dump camera module, warn for unsupported modules.
-      sensorPID = s->id.PID;
-      switch (sensorPID) {
-        case OV9650_PID: Log.println("WARNING: OV9650 camera module is not properly supported, will fallback to OV2640 operation"); break;
-        case OV7725_PID: Log.println("WARNING: OV7725 camera module is not properly supported, will fallback to OV2640 operation"); break;
-        case OV2640_PID: Log.println("OV2640 camera module detected"); break;
-        case OV3660_PID: Log.println("OV3660 camera module detected"); break;
-        default: Log.println("WARNING: Camera module is unknown and not properly supported, will fallback to OV2640 operation");
-      }
+    // Dump camera module, warn for unsupported modules.
+    sensorPID = s->id.PID;
+    switch (sensorPID) {
+      case OV9650_PID: Log.println("WARNING: OV9650 camera module is not properly supported, will fallback to OV2640 operation"); break;
+      case OV7725_PID: Log.println("WARNING: OV7725 camera module is not properly supported, will fallback to OV2640 operation"); break;
+      case OV2640_PID: Log.println("OV2640 camera module detected"); break;
+      case OV3660_PID: Log.println("OV3660 camera module detected"); break;
+      default: Log.println("WARNING: Camera module is unknown and not properly supported, will fallback to OV2640 operation");
+    }
 
-      // OV3660 initial sensors are flipped vertically and colors are a bit saturated
-      if (sensorPID == OV3660_PID) {
-        s->set_vflip(s, 1);  //flip it back
-        s->set_brightness(s, 1);  //up the blightness just a bit
-        s->set_saturation(s, -2);  //lower the saturation
-      }
+    // OV3660 initial sensors are flipped vertically and colors are a bit saturated
+    if (sensorPID == OV3660_PID) {
+      s->set_vflip(s, 1);  //flip it back
+      s->set_brightness(s, 1);  //up the blightness just a bit
+      s->set_saturation(s, -2);  //lower the saturation
+    }
 
-      // M5 Stack Wide has special needs
+    // M5 Stack Wide has special needs
 #if defined(CAMERA_MODEL_M5STACK_WIDE)
-      s->set_vflip(s, 1);
-      s->set_hmirror(s, 1);
+    s->set_vflip(s, 1);
+    s->set_hmirror(s, 1);
 #endif
 
-      // Config can override mirror and flip
+    // Config can override mirror and flip
 #if defined(H_MIRROR)
-      s->set_hmirror(s, H_MIRROR);
+    s->set_hmirror(s, H_MIRROR);
 #endif
 #if defined(V_FLIP)
-      s->set_vflip(s, V_FLIP);
+    s->set_vflip(s, V_FLIP);
 #endif
 
-      // set initial frame rate
+    // set initial frame rate
 #if defined(DEFAULT_RESOLUTION)
-      s->set_framesize(s, DEFAULT_RESOLUTION);
+    s->set_framesize(s, DEFAULT_RESOLUTION);
 #else
-      s->set_framesize(s, FRAMESIZE_SVGA);
+    s->set_framesize(s, FRAMESIZE_SVGA);
 #endif
 
-      /*
-        Add any other defaults you want to apply at startup here:
-        uncomment the line and set the value as desired (see the comments)
+    /*
+      Add any other defaults you want to apply at startup here:
+      uncomment the line and set the value as desired (see the comments)
 
-        these are defined in the esp headers here:
-        https://github.com/espressif/esp32-camera/blob/master/driver/include/sensor.h#L149
-      */
+      these are defined in the esp headers here:
+      https://github.com/espressif/esp32-camera/blob/master/driver/include/sensor.h#L149
+    */
 
-      //s->set_framesize(s, FRAMESIZE_SVGA); // FRAMESIZE_[QQVGA|HQVGA|QVGA|CIF|VGA|SVGA|XGA|SXGA|UXGA|QXGA(ov3660)]);
-      //s->set_quality(s, val);       // 10 to 63
-      //s->set_brightness(s, 0);      // -2 to 2
-      //s->set_contrast(s, 0);        // -2 to 2
-      //s->set_saturation(s, 0);      // -2 to 2
-      //s->set_special_effect(s, 0);  // 0 to 6 (0 - No Effect, 1 - Negative, 2 - Grayscale, 3 - Red Tint, 4 - Green Tint, 5 - Blue Tint, 6 - Sepia)
-      //s->set_whitebal(s, 1);        // aka 'awb' in the UI; 0 = disable , 1 = enable
-      //s->set_awb_gain(s, 1);        // 0 = disable , 1 = enable
-      //s->set_wb_mode(s, 0);         // 0 to 4 - if awb_gain enabled (0 - Auto, 1 - Sunny, 2 - Cloudy, 3 - Office, 4 - Home)
-      //s->set_exposure_ctrl(s, 1);   // 0 = disable , 1 = enable
-      //s->set_aec2(s, 0);            // 0 = disable , 1 = enable
-      //s->set_ae_level(s, 0);        // -2 to 2
-      //s->set_aec_value(s, 300);     // 0 to 1200
-      //s->set_gain_ctrl(s, 1);       // 0 = disable , 1 = enable
-      //s->set_agc_gain(s, 0);        // 0 to 30
-      //s->set_gainceiling(s, (gainceiling_t)0);  // 0 to 6
-      //s->set_bpc(s, 0);             // 0 = disable , 1 = enable
-      //s->set_wpc(s, 1);             // 0 = disable , 1 = enable
-      //s->set_raw_gma(s, 1);         // 0 = disable , 1 = enable
-      //s->set_lenc(s, 1);            // 0 = disable , 1 = enable
-      //s->set_hmirror(s, 0);         // 0 = disable , 1 = enable
-      //s->set_vflip(s, 0);           // 0 = disable , 1 = enable
-      //s->set_dcw(s, 1);             // 0 = disable , 1 = enable
-      //s->set_colorbar(s, 0);        // 0 = disable , 1 = enable
-    }
-    // We now have camera with default init
+    //s->set_framesize(s, FRAMESIZE_SVGA); // FRAMESIZE_[QQVGA|HQVGA|QVGA|CIF|VGA|SVGA|XGA|SXGA|UXGA|QXGA(ov3660)]);
+    //s->set_quality(s, val);       // 10 to 63
+    //s->set_brightness(s, 0);      // -2 to 2
+    //s->set_contrast(s, 0);        // -2 to 2
+    //s->set_saturation(s, 0);      // -2 to 2
+    //s->set_special_effect(s, 0);  // 0 to 6 (0 - No Effect, 1 - Negative, 2 - Grayscale, 3 - Red Tint, 4 - Green Tint, 5 - Blue Tint, 6 - Sepia)
+    //s->set_whitebal(s, 1);        // aka 'awb' in the UI; 0 = disable , 1 = enable
+    //s->set_awb_gain(s, 1);        // 0 = disable , 1 = enable
+    //s->set_wb_mode(s, 0);         // 0 to 4 - if awb_gain enabled (0 - Auto, 1 - Sunny, 2 - Cloudy, 3 - Office, 4 - Home)
+    //s->set_exposure_ctrl(s, 1);   // 0 = disable , 1 = enable
+    //s->set_aec2(s, 0);            // 0 = disable , 1 = enable
+    //s->set_ae_level(s, 0);        // -2 to 2
+    //s->set_aec_value(s, 300);     // 0 to 1200
+    //s->set_gain_ctrl(s, 1);       // 0 = disable , 1 = enable
+    //s->set_agc_gain(s, 0);        // 0 to 30
+    //s->set_gainceiling(s, (gainceiling_t)0);  // 0 to 6
+    //s->set_bpc(s, 0);             // 0 = disable , 1 = enable
+    //s->set_wpc(s, 1);             // 0 = disable , 1 = enable
+    //s->set_raw_gma(s, 1);         // 0 = disable , 1 = enable
+    //s->set_lenc(s, 1);            // 0 = disable , 1 = enable
+    //s->set_hmirror(s, 0);         // 0 = disable , 1 = enable
+    //s->set_vflip(s, 0);           // 0 = disable , 1 = enable
+    //s->set_dcw(s, 1);             // 0 = disable , 1 = enable
+    //s->set_colorbar(s, 0);        // 0 = disable , 1 = enable
   }
+  // We now have camera with default init
+}
 
-  void WifiSetup() {
-    // Feedback that we are now attempting to connect
-    flashLED(300);
-    delay(100);
-    flashLED(300);
-    Log.println("Starting WiFi");
+void WifiSetup() {
+  // Feedback that we are now attempting to connect
+  flashLED(300);
+  delay(100);
+  flashLED(300);
+  Log.println("Starting WiFi");
 
-    // Disable power saving on WiFi to improve responsiveness
-    // (https://github.com/espressif/arduino-esp32/issues/1484)
-    WiFi.setSleep(false);
+  // Disable power saving on WiFi to improve responsiveness
+  // (https://github.com/espressif/arduino-esp32/issues/1484)
+  WiFi.setSleep(false);
 
-    Log.print("Known external SSIDs: ");
-    if (stationCount > firstStation) {
-      for (int i = firstStation; i < stationCount; i++) Log.printf(" '%s'", stationList[i].ssid);
-    } else {
-      Log.print("None");
-    }
-    Log.println();
-    byte mac[6] = {0, 0, 0, 0, 0, 0};
-    WiFi.macAddress(mac);
-    Log.printf("MAC address: %02X:%02X:%02X:%02X:%02X:%02X\r\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  Log.print("Known external SSIDs: ");
+  if (stationCount > firstStation) {
+    for (int i = firstStation; i < stationCount; i++) Log.printf(" '%s'", stationList[i].ssid);
+  } else {
+    Log.print("None");
+  }
+  Log.println();
+  byte mac[6] = {0, 0, 0, 0, 0, 0};
+  WiFi.macAddress(mac);
+  Log.printf("MAC address: %02X:%02X:%02X:%02X:%02X:%02X\r\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
-    int bestStation = -1;
-    long bestRSSI = -1024;
-    char bestSSID[65] = "";
-    uint8_t bestBSSID[6];
-    if (stationCount > firstStation) {
-      // We have a list to scan
-      Log.printf("Scanning local Wifi Networks\r\n");
-      int stationsFound = WiFi.scanNetworks();
-      Log.printf("%i networks found\r\n", stationsFound);
-      if (stationsFound > 0) {
-        for (int i = 0; i < stationsFound; ++i) {
-          // Print SSID and RSSI for each network found
-          String thisSSID = WiFi.SSID(i);
-          int thisRSSI = WiFi.RSSI(i);
-          String thisBSSID = WiFi.BSSIDstr(i);
-          Log.printf("%3i : [%s] %s (%i)", i + 1, thisBSSID.c_str(), thisSSID.c_str(), thisRSSI);
-          // Scan our list of known external stations
-          for (int sta = firstStation; sta < stationCount; sta++) {
-            if ((strcmp(stationList[sta].ssid, thisSSID.c_str()) == 0) ||
-                (strcmp(stationList[sta].ssid, thisBSSID.c_str()) == 0)) {
-              Log.print("  -  Known!");
-              // Chose the strongest RSSI seen
-              if (thisRSSI > bestRSSI) {
-                bestStation = sta;
-                strncpy(bestSSID, thisSSID.c_str(), 64);
-                // Convert char bssid[] to a byte array
-                parseBytes(thisBSSID.c_str(), ':', bestBSSID, 6, 16);
-                bestRSSI = thisRSSI;
-              }
+  int bestStation = -1;
+  long bestRSSI = -1024;
+  char bestSSID[65] = "";
+  uint8_t bestBSSID[6];
+  if (stationCount > firstStation) {
+    // We have a list to scan
+    Log.printf("Scanning local Wifi Networks\r\n");
+    int stationsFound = WiFi.scanNetworks();
+    Log.printf("%i networks found\r\n", stationsFound);
+    if (stationsFound > 0) {
+      for (int i = 0; i < stationsFound; ++i) {
+        // Print SSID and RSSI for each network found
+        String thisSSID = WiFi.SSID(i);
+        int thisRSSI = WiFi.RSSI(i);
+        String thisBSSID = WiFi.BSSIDstr(i);
+        Log.printf("%3i : [%s] %s (%i)", i + 1, thisBSSID.c_str(), thisSSID.c_str(), thisRSSI);
+        // Scan our list of known external stations
+        for (int sta = firstStation; sta < stationCount; sta++) {
+          if ((strcmp(stationList[sta].ssid, thisSSID.c_str()) == 0) ||
+              (strcmp(stationList[sta].ssid, thisBSSID.c_str()) == 0)) {
+            Log.print("  -  Known!");
+            // Chose the strongest RSSI seen
+            if (thisRSSI > bestRSSI) {
+              bestStation = sta;
+              strncpy(bestSSID, thisSSID.c_str(), 64);
+              // Convert char bssid[] to a byte array
+              parseBytes(thisBSSID.c_str(), ':', bestBSSID, 6, 16);
+              bestRSSI = thisRSSI;
             }
           }
-          Log.println();
         }
+        Log.println();
       }
-    } else {
-      // No list to scan, therefore we are an accesspoint
-      accesspoint = true;
     }
+  } else {
+    // No list to scan, therefore we are an accesspoint
+    accesspoint = true;
+  }
 
-    if (bestStation == -1) {
-      if (!accesspoint) {
+  if (bestStation == -1) {
+    if (!accesspoint) {
 #if defined(WIFI_AP_ENABLE)
-        Log.println("No known networks found, entering AccessPoint fallback mode");
-        accesspoint = true;
+      Log.println("No known networks found, entering AccessPoint fallback mode");
+      accesspoint = true;
 #else
-        Log.println("No known networks found");
+      Log.println("No known networks found");
 #endif
-      } else {
-        Log.println("AccessPoint mode selected in config");
-      }
     } else {
-      Log.printf("Connecting to Wifi Network %d: [%02X:%02X:%02X:%02X:%02X:%02X] %s \r\n",
-                 bestStation, bestBSSID[0], bestBSSID[1], bestBSSID[2], bestBSSID[3],
-                 bestBSSID[4], bestBSSID[5], bestSSID);
-      // Apply static settings if necesscary
-      if (stationList[bestStation].dhcp == false) {
+      Log.println("AccessPoint mode selected in config");
+    }
+  } else {
+    Log.printf("Connecting to Wifi Network %d: [%02X:%02X:%02X:%02X:%02X:%02X] %s \r\n",
+               bestStation, bestBSSID[0], bestBSSID[1], bestBSSID[2], bestBSSID[3],
+               bestBSSID[4], bestBSSID[5], bestSSID);
+    // Apply static settings if necesscary
+    if (stationList[bestStation].dhcp == false) {
 #if defined(ST_IP)
-        Log.println("Applying static IP settings");
+      Log.println("Applying static IP settings");
 #if !defined (ST_GATEWAY)  || !defined (ST_NETMASK)
 #error "You must supply both Gateway and NetMask when specifying a static IP address"
 #endif
-        IPAddress staticIP(ST_IP);
-        IPAddress gateway(ST_GATEWAY);
-        IPAddress subnet(ST_NETMASK);
+      IPAddress staticIP(ST_IP);
+      IPAddress gateway(ST_GATEWAY);
+      IPAddress subnet(ST_NETMASK);
 #if !defined(ST_DNS1)
-        WiFi.config(staticIP, gateway, subnet);
+      WiFi.config(staticIP, gateway, subnet);
 #else
-        IPAddress dns1(ST_DNS1);
+      IPAddress dns1(ST_DNS1);
 #if !defined(ST_DNS2)
-        WiFi.config(staticIP, gateway, subnet, dns1);
+      WiFi.config(staticIP, gateway, subnet, dns1);
 #else
-        IPAddress dns2(ST_DNS2);
-        WiFi.config(staticIP, gateway, subnet, dns1, dns2);
+      IPAddress dns2(ST_DNS2);
+      WiFi.config(staticIP, gateway, subnet, dns1, dns2);
 #endif
 #endif
 #else
-        Log.println("Static IP settings requested but not defined in config, falling back to dhcp");
+      Log.println("Static IP settings requested but not defined in config, falling back to dhcp");
 #endif
-      }
-
-      WiFi.setHostname(mdnsName);
-
-      // Initiate network connection request (3rd argument, channel = 0 is 'auto')
-      WiFi.begin(bestSSID, stationList[bestStation].password, 0, bestBSSID);
-
-      // Wait to connect, or timeout
-      unsigned long start = millis();
-      while ((millis() - start <= WIFI_WATCHDOG) && (WiFi.status() != WL_CONNECTED)) {
-        delay(500);
-        Log.print('.');
-      }
-      Log.println();
-      Log.begin();
-      // If we have connected, inform user
-      if (WiFi.status() == WL_CONNECTED) {
-        Log.println("Client connection succeeded");
-        accesspoint = false;
-        // Note IP details
-        ip = WiFi.localIP();
-        net = WiFi.subnetMask();
-        gw = WiFi.gatewayIP();
-        Log.printf("IP address: %d.%d.%d.%d\r\n", ip[0], ip[1], ip[2], ip[3]);
-        Log.printf("Netmask   : %d.%d.%d.%d\r\n", net[0], net[1], net[2], net[3]);
-        Log.printf("Gateway   : %d.%d.%d.%d\r\n", gw[0], gw[1], gw[2], gw[3]);
-        calcURLs();
-        // Flash the LED to show we are connected
-        for (int i = 0; i < 5; i++) {
-          flashLED(50);
-          delay(150);
-        }
-      } else {
-        Log.println("Client connection Failed");
-        WiFi.disconnect();   // (resets the WiFi scan)
-      }
     }
 
-    if (accesspoint && (WiFi.status() != WL_CONNECTED)) {
-      // The accesspoint has been enabled, and we have not connected to any existing networks
-#if defined(AP_CHAN)
-      Log.println("Setting up Fixed Channel AccessPoint");
-      Log.print("  SSID     : ");
-      Log.println(stationList[0].ssid);
-      Log.print("  Password : ");
-      Log.println(stationList[0].password);
-      Log.print("  Channel  : ");
-      Log.println(AP_CHAN);
-      WiFi.softAP(stationList[0].ssid, stationList[0].password, AP_CHAN);
-# else
-      Log.println("Setting up AccessPoint");
-      Log.print("  SSID     : ");
-      Log.println(stationList[0].ssid);
-      Log.print("  Password : ");
-      Log.println(stationList[0].password);
-      WiFi.softAP(stationList[0].ssid, stationList[0].password);
-#endif
-#if defined(AP_ADDRESS)
-      // User has specified the AP details; apply them after a short delay
-      // (https://github.com/espressif/arduino-esp32/issues/985#issuecomment-359157428)
-      delay(100);
-      IPAddress local_IP(AP_ADDRESS);
-      IPAddress gateway(AP_ADDRESS);
-      IPAddress subnet(255, 255, 255, 0);
-      WiFi.softAPConfig(local_IP, gateway, subnet);
-#endif
-      // Note AP details
-      ip = WiFi.softAPIP();
+    WiFi.setHostname(mdnsName);
+
+    // Initiate network connection request (3rd argument, channel = 0 is 'auto')
+    WiFi.begin(bestSSID, stationList[bestStation].password, 0, bestBSSID);
+
+    // Wait to connect, or timeout
+    unsigned long start = millis();
+    while ((millis() - start <= WIFI_WATCHDOG) && (WiFi.status() != WL_CONNECTED)) {
+      delay(500);
+      Log.print('.');
+    }
+    Log.println();
+    Log.begin();
+    // If we have connected, inform user
+    if (WiFi.status() == WL_CONNECTED) {
+      Log.println("Client connection succeeded");
+      accesspoint = false;
+      // Note IP details
+      ip = WiFi.localIP();
       net = WiFi.subnetMask();
       gw = WiFi.gatewayIP();
-      strcpy(apName, stationList[0].ssid);
       Log.printf("IP address: %d.%d.%d.%d\r\n", ip[0], ip[1], ip[2], ip[3]);
+      Log.printf("Netmask   : %d.%d.%d.%d\r\n", net[0], net[1], net[2], net[3]);
+      Log.printf("Gateway   : %d.%d.%d.%d\r\n", gw[0], gw[1], gw[2], gw[3]);
       calcURLs();
       // Flash the LED to show we are connected
       for (int i = 0; i < 5; i++) {
-        flashLED(150);
-        delay(50);
+        flashLED(50);
+        delay(150);
       }
-      // Start the DNS captive portal if requested
-      if (stationList[0].dhcp == true) {
-        Log.println("Starting Captive Portal");
-        dnsServer.start(DNS_PORT, "*", ip);
-        captivePortal = true;
-      }
+    } else {
+      Log.println("Client connection Failed");
+      WiFi.disconnect();   // (resets the WiFi scan)
     }
   }
 
-  void setup() {
-    Serial.begin(115200);
-    Serial.setDebugOutput(true);
-    Log.addPrintStream(std::make_shared<WebSerialStream>(webSerialStream));
-    if (stationCount == 0) {
-      Log.println("\r\nFatal Error; Halting");
-      while (true) {
-        Log.println("No wifi details have been configured; we cannot connect to existing WiFi or start our own AccessPoint, there is no point in proceeding.");
-        delay(5000);
-      }
+  if (accesspoint && (WiFi.status() != WL_CONNECTED)) {
+    // The accesspoint has been enabled, and we have not connected to any existing networks
+#if defined(AP_CHAN)
+    Log.println("Setting up Fixed Channel AccessPoint");
+    Log.print("  SSID     : ");
+    Log.println(stationList[0].ssid);
+    Log.print("  Password : ");
+    Log.println(stationList[0].password);
+    Log.print("  Channel  : ");
+    Log.println(AP_CHAN);
+    WiFi.softAP(stationList[0].ssid, stationList[0].password, AP_CHAN);
+# else
+    Log.println("Setting up AccessPoint");
+    Log.print("  SSID     : ");
+    Log.println(stationList[0].ssid);
+    Log.print("  Password : ");
+    Log.println(stationList[0].password);
+    WiFi.softAP(stationList[0].ssid, stationList[0].password);
+#endif
+#if defined(AP_ADDRESS)
+    // User has specified the AP details; apply them after a short delay
+    // (https://github.com/espressif/arduino-esp32/issues/985#issuecomment-359157428)
+    delay(100);
+    IPAddress local_IP(AP_ADDRESS);
+    IPAddress gateway(AP_ADDRESS);
+    IPAddress subnet(255, 255, 255, 0);
+    WiFi.softAPConfig(local_IP, gateway, subnet);
+#endif
+    // Note AP details
+    ip = WiFi.softAPIP();
+    net = WiFi.subnetMask();
+    gw = WiFi.gatewayIP();
+    strcpy(apName, stationList[0].ssid);
+    Log.printf("IP address: %d.%d.%d.%d\r\n", ip[0], ip[1], ip[2], ip[3]);
+    calcURLs();
+    // Flash the LED to show we are connected
+    for (int i = 0; i < 5; i++) {
+      flashLED(150);
+      delay(50);
     }
-    // Start Wifi and loop until we are connected or have started an AccessPoint
-    while ((WiFi.status() != WL_CONNECTED) && !accesspoint)  {
-      WifiSetup();
+    // Start the DNS captive portal if requested
+    if (stationList[0].dhcp == true) {
+      Log.println("Starting Captive Portal");
+      dnsServer.start(DNS_PORT, "*", ip);
+      captivePortal = true;
     }
-    Log.begin();
-    Log.print("setup: Log.begin(), CPU ");
-    Log.println(xPortGetCoreID());
-    Log.println();
-    Log.println("====");
-    Log.print("esp32-cam-webserver: ");
-    Log.println(myName);
-    Log.print("Code Built: ");
-    Log.println(myVer);
-    Log.print("Base Release: ");
-    Log.println(baseVersion);
-    Log.println();
-    // Warn if no PSRAM is detected (typically user error with board selection in the IDE)
-    if (!psramFound()) {
-      Log.println("\r\nFatal Error; Halting");
-      while (true) {
-        Log.println("No PSRAM found; camera cannot be initialised: Please check the board config for your module.");
-        delay(5000);
-      }
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  Serial.setDebugOutput(true);
+  Log.addPrintStream(std::make_shared<WebSerialStream>(webSerialStream));
+  if (stationCount == 0) {
+    Log.println("\r\nFatal Error; Halting");
+    while (true) {
+      Log.println("No wifi details have been configured; we cannot connect to existing WiFi or start our own AccessPoint, there is no point in proceeding.");
+      delay(5000);
     }
+  }
+  // Start Wifi and loop until we are connected or have started an AccessPoint
+  while ((WiFi.status() != WL_CONNECTED) && !accesspoint)  {
+    WifiSetup();
+  }
+  Log.begin();
+  Log.print("setup: Log.begin(), CPU ");
+  Log.println(xPortGetCoreID());
+  Log.println();
+  Log.println("====");
+  Log.print("esp32-cam-webserver: ");
+  Log.println(myName);
+  Log.print("Code Built: ");
+  Log.println(myVer);
+  Log.print("Base Release: ");
+  Log.println(baseVersion);
+  Log.println();
+  // Warn if no PSRAM is detected (typically user error with board selection in the IDE)
+  if (!psramFound()) {
+    Log.println("\r\nFatal Error; Halting");
+    while (true) {
+      Log.println("No PSRAM found; camera cannot be initialised: Please check the board config for your module.");
+      delay(5000);
+    }
+  }
 
 #if defined(LED_PIN)  // If we have a notification LED, set it to output
-    pinMode(LED_PIN, OUTPUT);
-    digitalWrite(LED_PIN, LED_ON);
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LED_ON);
 #endif
 
-    // Start the SPIFFS filesystem before we initialise the camera
-    if (filesystem) {
-      filesystemStart();
-      delay(200); // a short delay to let spi bus settle after SPIFFS init
-    }
-
-    // Start (init) the camera
-    StartCamera();
-
-    // Now load and apply any saved preferences
-    if (filesystem) {
-      delay(200); // a short delay to let spi bus settle after camera init
-      loadPrefs(SPIFFS);
-    } else {
-      Log.println("No Internal Filesystem, cannot load or save preferences");
-    }
-
-    /*
-      Camera setup complete; initialise the rest of the hardware.
-    */
-
-    servo1.attach(Servo1Pin);
-    servo2.attach(Servo2Pin);
-    servo1.write(ptz_y);
-    servo2.write(ptz_x);
-
-    // Set up OTA
-    if (otaEnabled) {
-      // Start OTA once connected
-      Log.println("Setting up OTA");
-      // Port defaults to 3232
-      // ArduinoOTA.setPort(3232);
-      // Hostname defaults to esp3232-[MAC]
-      ArduinoOTA.setHostname(mdnsName);
-      // No authentication by default
-      if (strlen(otaPassword) != 0) {
-        ArduinoOTA.setPassword(otaPassword);
-        Log.printf("OTA Password: %s\n\r", otaPassword);
-      } else {
-        Log.printf("\r\nNo OTA password has been set! (insecure)\r\n\r\n");
-      }
-      ArduinoOTA
-      .onStart([]() {
-        String type;
-        if (ArduinoOTA.getCommand() == U_FLASH)
-          type = "sketch";
-        else // U_SPIFFS
-          // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-          type = "filesystem";
-        Log.println("Start updating " + type);
-        Log.print("setup ArduinoOTA.onStart CPU ");
-        Log.println(xPortGetCoreID());
-        // Stop the camera since OTA will crash the module if it is running.
-        // the unit will need rebooting to restart it, either by OTA on success, or manually by the user
-        Log.println("Stopping Camera");
-        esp_err_t err = esp_camera_deinit();
-        critERR = "<h1>OTA Has been started</h1><hr><p>Camera has Halted!</p>";
-        critERR += "<p>Wait for OTA to finish and reboot, or <a href=\"control?var=reboot&val=0\" title=\"Reboot Now (may interrupt OTA)\">reboot manually</a> to recover</p>";
-      })
-      .onEnd([]() {
-        Log.println("\r\nEnd");
-      })
-      .onProgress([](unsigned int progress, unsigned int total) {
-        Log.printf("Progress: %u%%\r", (progress / (total / 100)));
-      })
-      .onError([](ota_error_t error) {
-        Log.printf("Error[%u]: ", error);
-        if (error == OTA_AUTH_ERROR) Log.println("Auth Failed");
-        else if (error == OTA_BEGIN_ERROR) Log.println("Begin Failed");
-        else if (error == OTA_CONNECT_ERROR) Log.println("Connect Failed");
-        else if (error == OTA_RECEIVE_ERROR) Log.println("Receive Failed");
-        else if (error == OTA_END_ERROR) Log.println("End Failed");
-      });
-      ArduinoOTA.begin();
-    } else {
-      Log.println("OTA is disabled");
-
-      if (!MDNS.begin(mdnsName)) {
-        Log.println("Error setting up MDNS responder!");
-      }
-      Log.println("mDNS responder started");
-    }
-
-    //MDNS Config -- note that if OTA is NOT enabled this needs prior steps!
-    MDNS.addService("http", "tcp", 80);
-    Log.println("Added HTTP service to MDNS server");
-
-    MDNS.addService("webserial", "tcp", 8514);
-    Log.println("Added webserial service to MDNS server");
-
-    // Set time via NTP server when enabled
-    if (haveTime) {
-      Log.print("Time: ");
-      configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-      printLocalTime(true);
-    } else {
-      Log.println("Time functions disabled");
-    }
-
-    // Gather static values used when dumping status; these are slow functions, so just do them once during startup
-    sketchSize = ESP.getSketchSize();
-    sketchSpace = ESP.getFreeSketchSpace();
-    sketchMD5 = ESP.getSketchMD5();
-
-    // Initialise and set the lamp
-    if (lampVal != -1) {
-#if defined(LAMP_PIN)
-      ledcSetup(lampChannel, pwmfreq, pwmresolution);  // configure LED PWM channel
-      ledcAttachPin(LAMP_PIN, lampChannel);            // attach the GPIO pin to the channel
-      if (autoLamp) setLamp(0);                        // set default value
-      else setLamp(lampVal);
-#endif
-    } else {
-      Log.println("No lamp, or lamp disabled in config");
-    }
-
-
-    // As a final init step chomp out the serial buffer in case we have recieved mis-keys or garbage during startup
-    while (Serial.available()) Serial.read();
-    xTaskCreatePinnedToCore(TaskCore0, "TaskCore0",  10000,  NULL,  1, &TaskCore0Handle,  0);
+  // Start the SPIFFS filesystem before we initialise the camera
+  if (filesystem) {
+    filesystemStart();
+    delay(200); // a short delay to let spi bus settle after SPIFFS init
   }
 
-  const TickType_t xDelay = 10;
-  void loop() {
-    /*
-        Just loop forever, reconnecting Wifi As necesscary in client mode
-       The stream and URI handler processes initiated by the startCameraServer() call at the
-       end of setup() will handle the camera and UI processing from now on.
-    */
-    if (accesspoint) {
-      // Accespoint is permanently up, so just loop, servicing the captive portal as needed
-      // Rather than loop forever, follow the watchdog, in case we later add auto re-scan.
+  // Start (init) the camera
+  StartCamera();
+
+  // Now load and apply any saved preferences
+  if (filesystem) {
+    delay(200); // a short delay to let spi bus settle after camera init
+    loadPrefs(SPIFFS);
+    loadposPrefs(SPIFFS);
+  } else {
+    Log.println("No Internal Filesystem, cannot load or save preferences");
+  }
+
+  /*
+    Camera setup complete; initialise the rest of the hardware.
+  */
+
+  servo1.attach(Servo1Pin);
+  servo2.attach(Servo2Pin);
+
+  // Set up OTA
+  if (otaEnabled) {
+    // Start OTA once connected
+    Log.println("Setting up OTA");
+    // Port defaults to 3232
+    // ArduinoOTA.setPort(3232);
+    // Hostname defaults to esp3232-[MAC]
+    ArduinoOTA.setHostname(mdnsName);
+    // No authentication by default
+    if (strlen(otaPassword) != 0) {
+      ArduinoOTA.setPassword(otaPassword);
+      Log.printf("OTA Password: %s\n\r", otaPassword);
+    } else {
+      Log.printf("\r\nNo OTA password has been set! (insecure)\r\n\r\n");
+    }
+    ArduinoOTA
+    .onStart([]() {
+      String type;
+      if (ArduinoOTA.getCommand() == U_FLASH)
+        type = "sketch";
+      else // U_SPIFFS
+        // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+        type = "filesystem";
+      Log.println("Start updating " + type);
+      Log.print("setup ArduinoOTA.onStart CPU ");
+      Log.println(xPortGetCoreID());
+      // Stop the camera since OTA will crash the module if it is running.
+      // the unit will need rebooting to restart it, either by OTA on success, or manually by the user
+      Log.println("Stopping Camera");
+      esp_err_t err = esp_camera_deinit();
+      critERR = "<h1>OTA Has been started</h1><hr><p>Camera has Halted!</p>";
+      critERR += "<p>Wait for OTA to finish and reboot, or <a href=\"control?var=reboot&val=0\" title=\"Reboot Now (may interrupt OTA)\">reboot manually</a> to recover</p>";
+    })
+    .onEnd([]() {
+      Log.println("\r\nEnd");
+    })
+    .onProgress([](unsigned int progress, unsigned int total) {
+      Log.printf("Progress: %u%%\r", (progress / (total / 100)));
+    })
+    .onError([](ota_error_t error) {
+      Log.printf("Error[%u]: ", error);
+      if (error == OTA_AUTH_ERROR) Log.println("Auth Failed");
+      else if (error == OTA_BEGIN_ERROR) Log.println("Begin Failed");
+      else if (error == OTA_CONNECT_ERROR) Log.println("Connect Failed");
+      else if (error == OTA_RECEIVE_ERROR) Log.println("Receive Failed");
+      else if (error == OTA_END_ERROR) Log.println("End Failed");
+    });
+    ArduinoOTA.begin();
+  } else {
+    Log.println("OTA is disabled");
+
+    if (!MDNS.begin(mdnsName)) {
+      Log.println("Error setting up MDNS responder!");
+    }
+    Log.println("mDNS responder started");
+  }
+
+  //MDNS Config -- note that if OTA is NOT enabled this needs prior steps!
+  MDNS.addService("http", "tcp", 80);
+  Log.println("Added HTTP service to MDNS server");
+
+  MDNS.addService("webserial", "tcp", 8514);
+  Log.println("Added webserial service to MDNS server");
+
+  // Set time via NTP server when enabled
+  if (haveTime) {
+    Log.print("Time: ");
+    configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+    printLocalTime(true);
+  } else {
+    Log.println("Time functions disabled");
+  }
+
+  // Gather static values used when dumping status; these are slow functions, so just do them once during startup
+  sketchSize = ESP.getSketchSize();
+  sketchSpace = ESP.getFreeSketchSpace();
+  sketchMD5 = ESP.getSketchMD5();
+
+  // Initialise and set the lamp
+  if (lampVal != -1) {
+#if defined(LAMP_PIN)
+    ledcSetup(lampChannel, pwmfreq, pwmresolution);  // configure LED PWM channel
+    ledcAttachPin(LAMP_PIN, lampChannel);            // attach the GPIO pin to the channel
+    if (autoLamp) setLamp(0);                        // set default value
+    else setLamp(lampVal);
+#endif
+  } else {
+    Log.println("No lamp, or lamp disabled in config");
+  }
+
+
+  // As a final init step chomp out the serial buffer in case we have recieved mis-keys or garbage during startup
+  while (Serial.available()) Serial.read();
+  xTaskCreatePinnedToCore(TaskCore0, "TaskCore0",  1000,  NULL,  1, &TaskCore0Handle,  0);
+  int pvPeriodtimer = 10;
+  xTaskCreatePinnedToCore(asyncPos,  "asyncPos",   1000,  pvPeriodtimer,  0, &asyncPos1Handle,  1);
+}
+
+
+void loop() {
+  /*
+      Just loop forever, reconnecting Wifi As necesscary in client mode
+     The stream and URI handler processes initiated by the startCameraServer() call at the
+     end of setup() will handle the camera and UI processing from now on.
+  */
+  if (accesspoint) {
+    // Accespoint is permanently up, so just loop, servicing the captive portal as needed
+    // Rather than loop forever, follow the watchdog, in case we later add auto re-scan.
+    unsigned long start = millis();
+    while (millis() - start < WIFI_WATCHDOG ) {
+      //delay(100);
+      vTaskDelay( xDelay );
+      if (otaEnabled) ArduinoOTA.handle();
+      handleSerial();
+      if (captivePortal) dnsServer.processNextRequest();
+    }
+  } else {
+    // client mode can fail; so reconnect as appropriate
+    static bool warned = false;
+    if (WiFi.status() == WL_CONNECTED) {
+      // We are connected, wait a bit and re-check
+      if (warned) {
+        // Tell the user if we have just reconnected
+        Log.println("WiFi reconnected");
+        warned = false;
+      }
+      // loop here for WIFI_WATCHDOG, turning debugData true/false depending on serial input..
       unsigned long start = millis();
       while (millis() - start < WIFI_WATCHDOG ) {
-        //delay(100);
-        vTaskDelay( xDelay );
+        delay(100);
         if (otaEnabled) ArduinoOTA.handle();
         handleSerial();
-        if (captivePortal) dnsServer.processNextRequest();
       }
     } else {
-      // client mode can fail; so reconnect as appropriate
-      static bool warned = false;
-      if (WiFi.status() == WL_CONNECTED) {
-        // We are connected, wait a bit and re-check
-        if (warned) {
-          // Tell the user if we have just reconnected
-          Log.println("WiFi reconnected");
-          warned = false;
-        }
-        // loop here for WIFI_WATCHDOG, turning debugData true/false depending on serial input..
-        unsigned long start = millis();
-        while (millis() - start < WIFI_WATCHDOG ) {
-          delay(100);
-          if (otaEnabled) ArduinoOTA.handle();
-          handleSerial();
-        }
-      } else {
-        // disconnected; attempt to reconnect
-        if (!warned) {
-          Log.print("loop CPU ");
-          Log.println(xPortGetCoreID());
-          // Tell the user if we just disconnected
-          WiFi.disconnect();  // ensures disconnect is complete, wifi scan cleared
-          Log.println("WiFi disconnected, retrying");
-          warned = true;
-        }
-        WifiSetup();
+      // disconnected; attempt to reconnect
+      if (!warned) {
+        Log.print("loop CPU ");
+        Log.println(xPortGetCoreID());
+        // Tell the user if we just disconnected
+        WiFi.disconnect();  // ensures disconnect is complete, wifi scan cleared
+        Log.println("WiFi disconnected, retrying");
+        warned = true;
       }
+      WifiSetup();
     }
   }
+}
