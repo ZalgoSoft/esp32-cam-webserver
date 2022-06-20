@@ -1,0 +1,32 @@
+End User License Agreement ("EULA")
+ 
+Do not install or use the software until you have read and accepted all of the license terms. Permission to use the software is conditional upon your agreeing to the license terms. Installation or use of the software by you will be deemed to be acceptance of the license terms. Acceptance will bind you to the license terms in a legally enforceable contract with Prolific Technology Inc.
+ 
+* SOFTWARE LICENSE AND LIMITED WARRANTY
+This is an agreement between you, the end user, and Prolific Technology Inc. ("Prolific"). By using this software, you agree to become bound by the terms of this agreement.
+ 
+IF YOU DO NOT AGREE TO THE TERMS OF THIS AGREEMENT, DO NOT USE THIS SOFTWARE AND PLEASE PROMPTLY REMOVE IT FROM YOUR COMPUTER.
+ 
+* GRANT OF LICENSE
+Prolific, as licensor, grants to you, the licensee, a non-exclusive right to install One Button Utility (hereinafter the "SOFTWARE") on one computer and use the SOFTWARE in accordance with the terms contained in this license. You may not rent, lease, sublicense, modify, alter, reverse engineer, disassemble, decompile, or create any derivative work of the SOFTWARE, or remove any copyright notice or proprietary legend contained in the Software. You may also not reproduce the SOFTWARE unless for backup purpose and limited to one copy only. Except for the Software marked "Not for Resale" or the like, you may transfer the Software on a permanent basis to another person or entity accompanying the Documentation and the license agreement, provided that you retain no copies of the Software and the transferee agrees to the terms of this agreement. Such transfer will cause an automatic termination of this Agreement between you and Prolific.
+ 
+* OWNERSHIP OF SOFTWARE
+The Software is protected by copyright and other intellectual property laws and treaties.  Prolific retains the copyright, title and ownership of the SOFTWARE and the written materials ("Documentation") regardless of the form or media in or on which the original and other copies may exist.
+   
+* LIMITED WARRANTY
+Prolific warrants the media on which the SOFTWARE is furnished to be free of defects in material and workmanship, under normal use, for a period of fifteen (15) days following the date of delivery to you. If there is defect in the media, Prolific's sole liability shall be to replace the defective media which has been returned to Prolific or the supplier. In the event that Prolific is unable to replace defective media, Prolific shall at its sole discretion replace with the newer version of the same software.
+ 
+THIS SOFTWARE AND ACCOMPANYING DOCUMENTATAION (INCLUDING INSTRUCTIONS FOR USE) ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. FURTHER, PROLIFIC DOES NOT WARRANT, GUARANTEE, OR MAKE ANY REPRESENTATIONS REGARDING THE USE, OR THE RESULTS OF USE, OF THE SOFTWARE OR DOCUMENTATION IN TERMS OF CORRECTNESS, ACCURACY, RELIABILITY, CURRENTNESS, OR OTHERWISE. THE ENTIRE RISK AS TO THE RESULTS AND PERFORMANCE OF THE SOFTWARE IS ASSUMED BY YOU. IF THE SOFTWARE OR DOCUMENTATION IS DEFECTIVE, YOU, NOT PROLIFIC OR ITS DEALERS, DISTRIBUTORS, AGENTS, OR EMPLOYEES, SHALL ASSUME THE ENTIRE COST OF ALL NECESSARY SERVICE, REPAIR OR CORRECTION.
+ 
+PROLIFIC DISCLAIMS ALL OTHER WARRANTIES, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT, REGARDLESS OF WHETHER IT IS MADE BY PROLIFIC, ON THIS PROLIFIC PRODUCT. PROLIFIC DOES NOT WARRANT THAT THE SOFTWARE WILL BE UNINTERRUPTED OR ERROR-FREE. NO ORAL OR WRITTEN INFORMATION OR ADVICE GIVEN BY PROLIFIC, ITS DEALERS, DISTRIBUTORS, AGENTS OR EMPLOYEES SHALL CREATE A WARRANTY OR IN ANY WAY INCREASE THE SCOPE OF THIS WARRANTY AND YOU MAY NOT RELY ON ANY SUCH INFORMATION OR ADVICE. 
+ 
+NEITHER PROLIFIC NOR ANYONE ELSE WHO HAS BEEN INVOLVED IN THE CREATION, PRODUCTION OR DELIVERY OF THIS PRODUCT SHALL BE LIABLE FOR ANY DIRECT, INDIRECT, CONSEQUENTIAL OR INCIDENTAL DAMAGES (INCLUDING DAMAGES FOR LOSS OF BUSINESS PROFITS, BUSINESS INTERRUPTION, LOSS OF DATA, LOSS OF BUSINESS INFORMATION, OR OTHER PECUNIARY LOSS) ARISING OUT OF THE USE OR INABILITY TO USE SUCH PRODUCT EVEN IF PROLIFIC HAS BEEN ADVISED OF THE POSSBILITY OF SUCH DAMAGES.
+ 
+Should any other warranties be found to exist, such warranties shall be limited in duration to fifteen (15) days following the date of delivery to you. In no event will Prolific's liability for any damages to you or any other person exceed the amount paid for the license to use the SOFTWARE.
+ 
+Upon termination of this Agreement, you should destroy the Software and the Documentation and all the copies thereof and remove and delete the Software from your hard-disk or other storage device.
+ 
+This agreement constitutes the entire agreement between you and Prolific Technology Inc. This agreement shall be governed and construed in accordance with the laws of Taiwan and shall benefit Prolific, its successors and assigns. 
+ 
+Any claim or dispute between you and Prolific or against any agent, employee, successor or assign of Prolific, whether related to this agreement or otherwise, and any claim or dispute related to this agreement or the relationship or duties contemplated under this agreement, including the validity of this arbitration clause, shall be resolved in Taipei, Taiwan, pursuant to the Taiwan Arbitration Act. 
+ 
