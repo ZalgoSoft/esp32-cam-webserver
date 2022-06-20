@@ -462,7 +462,7 @@ static esp_err_t cmd_handler(httpd_req_t *req) {
       //ESP_LOGI(TAG, "PTZ: %i\t%i\t", ptz_x, ptz_y);
       //ESP_LOGI(TAG, "Up");
     }
-    else if (!strcmp(value,  "left" )) {
+    else if (!strcmp(value,  "right" )) {
       if (ptz_x <= 180) {
         ptz_x += Servo_Step;
         //        servo2.write(ptz_x);
@@ -470,7 +470,7 @@ static esp_err_t cmd_handler(httpd_req_t *req) {
       //ESP_LOGI(TAG, "PTZ: %i\t%i\t", ptz_x, ptz_y);
       //ESP_LOGI(TAG, "Left");
     }
-    else if (!strcmp(value, "right" )) {
+    else if (!strcmp(value, "left" )) {
       if (ptz_x >= 0) {
         ptz_x -= Servo_Step;
         //        servo2.write(ptz_x);
