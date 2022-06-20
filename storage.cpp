@@ -21,29 +21,29 @@ extern int ptz_y_now;
 extern int ptz_x_now;
 
 /*
- * Useful utility when debugging...
- */
+   Useful utility when debugging...
+*/
 
-void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
+void listDir(fs::FS &fs, const char * dirname, uint8_t levels) {
   Serial.printf("Listing SPIFFS directory: %s\r\n", dirname);
 
   File root = fs.open(dirname);
-  if(!root){
+  if (!root) {
     Serial.println("- failed to open directory");
     return;
   }
-  if(!root.isDirectory()){
+  if (!root.isDirectory()) {
     Serial.println(" - not a directory");
     return;
   }
 
   File file = root.openNextFile();
-  while(file){
-    if(file.isDirectory()){
+  while (file) {
+    if (file.isDirectory()) {
       Serial.print("  DIR : ");
       Serial.println(file.name());
-      if(levels){
-        listDir(fs, file.name(), levels -1);
+      if (levels) {
+        listDir(fs, file.name(), levels - 1);
       }
     } else {
       Serial.print("  FILE: ");
@@ -55,14 +55,14 @@ void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
   }
 }
 
-void dumpPrefs(fs::FS &fs){
+void dumpPrefs(fs::FS &fs) {
   if (fs.exists(PREFERENCES_FILE)) {
     // Dump contents for debug
     File file = fs.open(PREFERENCES_FILE, FILE_READ);
     int countSize = 0;
     while (file.available() && countSize <= PREFERENCES_MAX_SIZE) {
-        Serial.print(char(file.read()));
-        countSize++;
+      Serial.print(char(file.read()));
+      countSize++;
     }
     Serial.println("");
     file.close();
@@ -71,7 +71,7 @@ void dumpPrefs(fs::FS &fs){
   }
 }
 
-void loadPrefs(fs::FS &fs){
+void loadPrefs(fs::FS &fs) {
   if (fs.exists(PREFERENCES_FILE)) {
     // read file into a string
     String prefs;
@@ -89,28 +89,28 @@ void loadPrefs(fs::FS &fs){
       return;
     }
     while (file.available()) {
-        prefs += char(file.read());
-        if (prefs.length() > size) {
-          // corrupted SPIFFS files can return data beyond their declared size.
-          Serial.println("Preferences file failed to load properly, appears to be corrupt, removing");
-          removePrefs(SPIFFS);
-          return;
-        }
+      prefs += char(file.read());
+      if (prefs.length() > size) {
+        // corrupted SPIFFS files can return data beyond their declared size.
+        Serial.println("Preferences file failed to load properly, appears to be corrupt, removing");
+        removePrefs(SPIFFS);
+        return;
+      }
     }
 
     Servo1Pin = jsonExtract(prefs, "servo1_pin").toInt();
-    Servo2Pin = jsonExtract(prefs, "servo2_pin").toInt();    
+    Servo2Pin = jsonExtract(prefs, "servo2_pin").toInt();
     ptz_x = jsonExtract(prefs, "ptz_x").toInt();
     ptz_y = jsonExtract(prefs, "ptz_y").toInt();
-    Servo_Step= jsonExtract(prefs, "servo_step").toInt();
+    Servo_Step = jsonExtract(prefs, "servo_step").toInt();
 
     // get sensor reference
     sensor_t * s = esp_camera_sensor_get();
 
     // process local settings
     if (lampVal >= 0) {
-        int lampValPref = jsonExtract(prefs, "lamp").toInt();
-        if (lampValPref >= 0) lampVal = lampValPref;
+      int lampValPref = jsonExtract(prefs, "lamp").toInt();
+      if (lampValPref >= 0) lampVal = lampValPref;
     }
     minFrameTime = jsonExtract(prefs, "min_frame_time").toInt();
     if (jsonExtract(prefs, "autolamp").toInt() == 0) autoLamp = false; else autoLamp = true;
@@ -152,7 +152,7 @@ void loadPrefs(fs::FS &fs){
   }
 }
 
-void loadposPrefs(fs::FS &fs){
+void loadposPrefs(fs::FS &fs) {
   if (fs.exists(PREFERENCES_POS_FILE)) {
     // read file into a string
     String prefs;
@@ -170,31 +170,31 @@ void loadposPrefs(fs::FS &fs){
       return;
     }
     while (file.available()) {
-        prefs += char(file.read());
-        if (prefs.length() > size) {
-          // corrupted SPIFFS files can return data beyond their declared size.
-          Serial.println("Preferences pos file failed to load properly, appears to be corrupt, removing");
-          removeposPrefs(SPIFFS);
-          return;
-        }
+      prefs += char(file.read());
+      if (prefs.length() > size) {
+        // corrupted SPIFFS files can return data beyond their declared size.
+        Serial.println("Preferences pos file failed to load properly, appears to be corrupt, removing");
+        removeposPrefs(SPIFFS);
+        return;
+      }
     }
     ptz_x_now = jsonExtract(prefs, "ptz_x_now").toInt();
     ptz_y_now = jsonExtract(prefs, "ptz_y_now").toInt();
     // close the file
     file.close();
-//    dumpPrefs(SPIFFS);
+    //    dumpPrefs(SPIFFS);
   } else {
-    ptz_y_now = ptz_y;
-    ptz_x_now = ptz_x;
-    servo1.write(ptz_y);
-    servo2.write(ptz_x);
-    saveposPrefs(SPIFFS);
+    //ptz_y_now = ptz_y;
+    //ptz_x_now = ptz_x;
+    //servo1.write(ptz_y);
+    //servo2.write(ptz_x);
+    //saveposPrefs(SPIFFS);
     Serial.printf("Preference pos file %s not found; using system defaults.\r\n", PREFERENCES_POS_FILE);
   }
 }
 
 
-void savePrefs(fs::FS &fs){
+void savePrefs(fs::FS &fs) {
   if (fs.exists(PREFERENCES_FILE)) {
     Serial.printf("Updating %s\r\n", PREFERENCES_FILE);
   } else {
@@ -205,40 +205,40 @@ void savePrefs(fs::FS &fs){
   sensor_t * s = esp_camera_sensor_get();
   char * p = json_response;
   *p++ = '{';
-  p+=sprintf(p, "\"lamp\":%i,", lampVal);
-  p+=sprintf(p, "\"autolamp\":%u,", autoLamp);
-  p+=sprintf(p, "\"framesize\":%u,", s->status.framesize);
-  p+=sprintf(p, "\"quality\":%u,", s->status.quality);
-  p+=sprintf(p, "\"xclk\":%u,", xclk);
-  p+=sprintf(p, "\"min_frame_time\":%d,", minFrameTime);
-  p+=sprintf(p, "\"brightness\":%d,", s->status.brightness);
-  p+=sprintf(p, "\"contrast\":%d,", s->status.contrast);
-  p+=sprintf(p, "\"saturation\":%d,", s->status.saturation);
-  p+=sprintf(p, "\"special_effect\":%u,", s->status.special_effect);
-  p+=sprintf(p, "\"wb_mode\":%u,", s->status.wb_mode);
-  p+=sprintf(p, "\"awb\":%u,", s->status.awb);
-  p+=sprintf(p, "\"awb_gain\":%u,", s->status.awb_gain);
-  p+=sprintf(p, "\"aec\":%u,", s->status.aec);
-  p+=sprintf(p, "\"aec2\":%u,", s->status.aec2);
-  p+=sprintf(p, "\"ae_level\":%d,", s->status.ae_level);
-  p+=sprintf(p, "\"aec_value\":%u,", s->status.aec_value);
-  p+=sprintf(p, "\"agc\":%u,", s->status.agc);
-  p+=sprintf(p, "\"agc_gain\":%u,", s->status.agc_gain);
-  p+=sprintf(p, "\"gainceiling\":%u,", s->status.gainceiling);
-  p+=sprintf(p, "\"bpc\":%u,", s->status.bpc);
-  p+=sprintf(p, "\"wpc\":%u,", s->status.wpc);
-  p+=sprintf(p, "\"raw_gma\":%u,", s->status.raw_gma);
-  p+=sprintf(p, "\"lenc\":%u,", s->status.lenc);
-  p+=sprintf(p, "\"vflip\":%u,", s->status.vflip);
-  p+=sprintf(p, "\"hmirror\":%u,", s->status.hmirror);
-  p+=sprintf(p, "\"dcw\":%u,", s->status.dcw);
-  p+=sprintf(p, "\"colorbar\":%u,", s->status.colorbar);
-  p+=sprintf(p, "\"rotate\":\"%d\",", myRotation);
-  p+=sprintf(p, "\"servo1_pin\":%u,", Servo1Pin );
-  p+=sprintf(p, "\"servo2_pin\":%u,", Servo2Pin );
-  p+=sprintf(p, "\"servo_step\":%u,", Servo_Step );
-  p+=sprintf(p, "\"ptz_y\":%u,",  ptz_y );
-  p+=sprintf(p, "\"ptz_x\":%u",   ptz_x );
+  p += sprintf(p, "\"lamp\":%i,", lampVal);
+  p += sprintf(p, "\"autolamp\":%u,", autoLamp);
+  p += sprintf(p, "\"framesize\":%u,", s->status.framesize);
+  p += sprintf(p, "\"quality\":%u,", s->status.quality);
+  p += sprintf(p, "\"xclk\":%u,", xclk);
+  p += sprintf(p, "\"min_frame_time\":%d,", minFrameTime);
+  p += sprintf(p, "\"brightness\":%d,", s->status.brightness);
+  p += sprintf(p, "\"contrast\":%d,", s->status.contrast);
+  p += sprintf(p, "\"saturation\":%d,", s->status.saturation);
+  p += sprintf(p, "\"special_effect\":%u,", s->status.special_effect);
+  p += sprintf(p, "\"wb_mode\":%u,", s->status.wb_mode);
+  p += sprintf(p, "\"awb\":%u,", s->status.awb);
+  p += sprintf(p, "\"awb_gain\":%u,", s->status.awb_gain);
+  p += sprintf(p, "\"aec\":%u,", s->status.aec);
+  p += sprintf(p, "\"aec2\":%u,", s->status.aec2);
+  p += sprintf(p, "\"ae_level\":%d,", s->status.ae_level);
+  p += sprintf(p, "\"aec_value\":%u,", s->status.aec_value);
+  p += sprintf(p, "\"agc\":%u,", s->status.agc);
+  p += sprintf(p, "\"agc_gain\":%u,", s->status.agc_gain);
+  p += sprintf(p, "\"gainceiling\":%u,", s->status.gainceiling);
+  p += sprintf(p, "\"bpc\":%u,", s->status.bpc);
+  p += sprintf(p, "\"wpc\":%u,", s->status.wpc);
+  p += sprintf(p, "\"raw_gma\":%u,", s->status.raw_gma);
+  p += sprintf(p, "\"lenc\":%u,", s->status.lenc);
+  p += sprintf(p, "\"vflip\":%u,", s->status.vflip);
+  p += sprintf(p, "\"hmirror\":%u,", s->status.hmirror);
+  p += sprintf(p, "\"dcw\":%u,", s->status.dcw);
+  p += sprintf(p, "\"colorbar\":%u,", s->status.colorbar);
+  p += sprintf(p, "\"rotate\":\"%d\",", myRotation);
+  p += sprintf(p, "\"servo1_pin\":%u,", Servo1Pin );
+  p += sprintf(p, "\"servo2_pin\":%u,", Servo2Pin );
+  p += sprintf(p, "\"servo_step\":%u,", Servo_Step );
+  p += sprintf(p, "\"ptz_y\":%u,",  ptz_y );
+  p += sprintf(p, "\"ptz_x\":%u",   ptz_x );
 
   *p++ = '}';
   *p++ = 0;
@@ -247,7 +247,7 @@ void savePrefs(fs::FS &fs){
   dumpPrefs(SPIFFS);
 }
 
-void saveposPrefs(fs::FS &fs){
+void saveposPrefs(fs::FS &fs) {
   if (fs.exists(PREFERENCES_POS_FILE)) {
     Serial.printf("Updating %s\r\n", PREFERENCES_POS_FILE);
   } else {
@@ -257,13 +257,13 @@ void saveposPrefs(fs::FS &fs){
   static char json_response[64];
   char * p = json_response;
   *p++ = '{';
-  p+=sprintf(p, "\"ptz_y_now\":%u,",  ptz_y_now);
-  p+=sprintf(p, "\"ptz_x_now\":%u",ptz_x_now);
+  p += sprintf(p, "\"ptz_y_now\":%u,",  ptz_y_now);
+  p += sprintf(p, "\"ptz_x_now\":%u", ptz_x_now);
   *p++ = '}';
   *p++ = 0;
   file.print(json_response);
   file.close();
-//  dumpPrefs(SPIFFS);
+  //  dumpPrefs(SPIFFS);
 }
 
 void removeposPrefs(fs::FS &fs) {
@@ -288,14 +288,14 @@ void removePrefs(fs::FS &fs) {
   }
 }
 
-void filesystemStart(){
+void filesystemStart() {
   Serial.println("Starting internal SPIFFS filesystem");
   while ( !SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED) ) {
     // if we sit in this loop something is wrong;
     // if no existing spiffs partition exists one should be automagically created.
     Serial.println("SPIFFS Mount failed, this can happen on first-run initialisation");
     Serial.println("If it happens repeatedly check if a SPIFFS partition is present for your board?");
-    for (int i=0; i<10; i++) {
+    for (int i = 0; i < 10; i++) {
       flashLED(100); // Show SPIFFS failure
       delay(100);
     }

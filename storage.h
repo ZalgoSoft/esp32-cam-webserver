@@ -12,7 +12,7 @@ extern void loadPrefs(fs::FS &fs);
 extern void removePrefs(fs::FS &fs);
 extern void savePrefs(fs::FS &fs);
 extern void loadposPrefs(fs::FS &fs);
-extern void saveposPrefs(fs::FS &fs);
 extern void removeposPrefs(fs::FS &fs);
+extern void saveposPrefs(fs::FS &fs);
 
 extern void filesystemStart();
